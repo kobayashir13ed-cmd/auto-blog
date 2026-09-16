@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kobayashir13ed-cmd.github.io/auto-blog/sitemap.xml

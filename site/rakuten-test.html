@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>楽天API 接続テスト</title>
+<style>
+  :root{--fg:#1a1c1f;--muted:#5d646d;--bg:#fff;--border:#e2e5e9;--soft:#f6f8fa}
+  @media (prefers-color-scheme:dark){
+    :root{--fg:#e8eaed;--muted:#9aa3ad;--bg:#16181c;--border:#2f343b;--soft:#1e2126}}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);line-height:1.7;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .3rem}
+  .note{font-size:.85rem;color:var(--muted);margin:0 0 1.5rem}
+  label{display:block;font-size:.85rem;font-weight:700;margin:1rem 0 .3rem}
+  input{width:100%;padding:.6rem .7rem;border:1px solid var(--border);border-radius:6px;
+    background:var(--bg);color:var(--fg);font-size:.9rem;font-family:ui-monospace,monospace}
+  button{margin-top:1.2rem;padding:.75rem 1.5rem;border:0;border-radius:8px;
+    background:#bf0000;color:#fff;font-size:1rem;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  .result{margin-top:1.5rem;padding:1rem;border-radius:8px;background:var(--soft);
+    border:1px solid var(--border)}
+  .ok{color:#1a7f37;font-weight:700}
+  .ng{color:#c8102e;font-weight:700}
+  pre{white-space:pre-wrap;word-break:break-all;font-size:.75rem;
+    max-height:420px;overflow:auto;margin:.8rem 0 0;color:var(--muted)}
+  .hint{font-size:.8rem;color:var(--muted);margin-top:1rem;padding-top:1rem;
+    border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>楽天API 接続テスト</h1>
+  <p class="note">
+    このページはあなたのサイト上で動くため、リクエストに正しいRefererが付きます。<br>
+    ブラウザから楽天APIを呼べるかどうかを確認するための一時的なページです。
+  </p>
+
+  <label for="appId">Application ID（UUID形式）</label>
+  <input id="appId" placeholder="f805f3ec-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off">
+
+  <label for="accessKey">Access Key（pk_ で始まる）</label>
+  <input id="accessKey" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+
+  <label for="affiliateId">Affiliate ID（任意・空欄可）</label>
+  <input id="affiliateId" placeholder="57989289.xxxxxxxx.xxxxxxxx.xxxxxxxx" autocomplete="off">
+
+  <button id="run">テスト実行</button>
+
+  <div id="out"></div>
+
+  <p class="hint">
+    入力した値はこのページ内だけで使われ、どこにも保存・送信されません
+    （楽天APIへのリクエストを除く）。<br>
+    テストが終わったらこのページはリポジトリから削除してください。
+  </p>
+</div>
+
+<script>
+const ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701";
+
+document.getElementById("run").addEventListener("click", async () => {
+  const button = document.getElementById("run");
+  const out = document.getElementById("out");
+  const appId = document.getElementById("appId").value.trim();
+  const accessKey = document.getElementById("accessKey").value.trim();
+  const affiliateId = document.getElementById("affiliateId").value.trim();
+
+  if (!appId || !accessKey) {
+    out.innerHTML = '<div class="result"><span class="ng">Application ID と Access Key の両方を入力してください。</span></div>';
+    return;
+  }
+
+  button.disabled = true;
+  out.innerHTML = '<div class="result">通信中...</div>';
+
+  const params = new URLSearchParams({
+    applicationId: appId,
+    accessKey: accessKey,
+    keyword: "ゲーミングマウス 軽量",
+    hits: "3",
+    sort: "-reviewCount",
+    format: "json",
+  });
+  if (affiliateId) params.set("affiliateId", affiliateId);
+
+  try {
+    const response = await fetch(`${ENDPOINT}?${params}`);
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = null; }
+
+    if (!response.ok) {
+      out.innerHTML =
+        `<div class="result"><span class="ng">失敗（HTTP ${response.status}）</span>
+         <pre>${escapeHtml(text.slice(0, 2000))}</pre></div>`;
+      return;
+    }
+
+    // 応答の構造を確認しやすい形で出す
+    const first = data.Items && data.Items.length
+      ? (data.Items[0].Item || data.Items[0]) : null;
+    const fields = first ? Object.keys(first).join(", ") : "(商品が空)";
+    const hasAffiliate = first && first.affiliateUrl ? "あり" : "なし";
+
+    out.innerHTML =
+      `<div class="result">
+         <span class="ok">成功</span>
+         <p style="margin:.6rem 0 0;font-size:.9rem;">
+           ヒット総数：${data.count ?? "?"}<br>
+           トップレベル項目：${escapeHtml(Object.keys(data).join(", "))}<br>
+           1件目の項目名：${escapeHtml(fields)}<br>
+           アフィリエイトURL：${hasAffiliate}
+         </p>
+         <pre>${escapeHtml(JSON.stringify(first, null, 2))}</pre>
+       </div>`;
+  } catch (err) {
+    out.innerHTML =
+      `<div class="result"><span class="ng">通信エラー</span>
+       <p style="margin:.6rem 0 0;font-size:.9rem;">${escapeHtml(String(err))}</p>
+       <p style="margin:.6rem 0 0;font-size:.85rem;">
+         CORS（ブラウザからの直接呼び出しがサーバー側で許可されていない）の可能性があります。
+         ブラウザの開発者ツール（F12）のConsoleタブに詳細が出ていれば、それも確認してください。
+       </p></div>`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, c => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+</script>
+</body>
+</html>
