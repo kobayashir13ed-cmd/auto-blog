@@ -319,11 +319,24 @@ def main() -> None:
         (common.SITE / "robots.txt").write_text(
             f"User-agent: *\nAllow: /\n\nSitemap: {base}/sitemap.xml\n", encoding="utf-8")
 
+    # static/ の中身はそのままサイトへコピーする。
+    # 生成対象ではないファイル（検証用HTML、favicon、ads.txt など）を置く場所。
+    static_dir = common.ROOT / "static"
+    copied = 0
+    if static_dir.is_dir():
+        for source in static_dir.rglob("*"):
+            if source.is_file():
+                target = common.SITE / source.relative_to(static_dir)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+                copied += 1
+
     # GitHub Pages が _ で始まるパスをJekyll扱いしないようにする
     (common.SITE / ".nojekyll").write_text("", encoding="utf-8")
 
     print(f"サイトを生成しました: {len(posts)}記事 / "
-          f"{built_categories}カテゴリ → {common.SITE.relative_to(common.ROOT)}/")
+          f"{built_categories}カテゴリ / static {copied}件 "
+          f"→ {common.SITE.relative_to(common.ROOT)}/")
 
     uncategorized = [p for p in posts if not p.category]
     if uncategorized and categories(config):

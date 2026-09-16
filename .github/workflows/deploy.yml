@@ -1,0 +1,40 @@
+name: サイトを再生成して公開する
+
+# 記事の公開とは独立して、サイトだけを作り直したいときに使う。
+# 例: デザインを変えた、static/ にファイルを足した、設定を変えた。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: サイトを生成
+        run: python -m scripts.build_site
+
+      - name: 生成結果をコミット
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add site/
+          git diff --staged --quiet || git commit -m "site: 再生成"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
