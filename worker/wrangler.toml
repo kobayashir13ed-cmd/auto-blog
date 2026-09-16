@@ -1,0 +1,13 @@
+name = "auto-blog-approver"
+main = "index.js"
+compatibility_date = "2026-01-01"
+
+# 秘密変数はこのファイルに書かず、コマンドで登録する:
+#   npx wrangler secret put APPROVAL_SECRET
+#   npx wrangler secret put GITHUB_TOKEN
+#   npx wrangler secret put GITHUB_REPO
+#
+# デプロイ:
+#   npx wrangler deploy
+# 成功すると https://auto-blog-approver.<あなたのサブドメイン>.workers.dev が発行される。
+# そのURLを GitHub Secrets の WORKER_BASE_URL に設定すること。

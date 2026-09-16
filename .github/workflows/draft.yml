@@ -1,0 +1,52 @@
+name: 記事ドラフトを生成して承認メールを送る
+
+on:
+  schedule:
+    # 火曜と金曜の朝7時（日本時間）。cron は UTC なので -9時間して 22:00 の前日指定。
+    - cron: "0 22 * * 1,4"
+  workflow_dispatch:      # 手動実行用。最初のテストはこれで回す。
+
+# 生成したドラフトをコミットするため書き込み権限が必要
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 依存パッケージをインストール
+        run: pip install -r requirements.txt
+
+      - name: ドラフトを生成
+        id: gen
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: python -m scripts.generate
+
+      - name: ドラフトをコミット
+        if: steps.gen.outputs.draft_id != ''
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add content/ keywords.json
+          git commit -m "draft: ${{ steps.gen.outputs.draft_id }}"
+          git push
+
+      - name: 承認メールを送信
+        if: steps.gen.outputs.draft_id != ''
+        env:
+          APPROVAL_SECRET: ${{ secrets.APPROVAL_SECRET }}
+          WORKER_BASE_URL: ${{ secrets.WORKER_BASE_URL }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+        run: python -m scripts.notify --draft-id "${{ steps.gen.outputs.draft_id }}"

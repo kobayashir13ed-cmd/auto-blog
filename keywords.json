@@ -1,0 +1,42 @@
+{
+  "_使い方": [
+    "記事にしたいキーワードをここに並べます。上から順に1回の実行で1件ずつ消費されます。",
+    "status は pending → drafted → published と自動で進みます。却下すると pending に戻ります。",
+    "slug は記事URLになります。英数字とハイフンで、内容が推測できる短い語にしてください。",
+    "search_keyword は楽天の商品検索に使う語。記事キーワードと分けたいときだけ指定します。",
+    "intent はその記事で読者に何を提供するかのメモ。本文生成の指示に使われます。"
+  ],
+  "keywords": [
+    {
+      "keyword": "ゲーミングマウス 軽量",
+      "slug": "lightweight-gaming-mouse",
+      "search_keyword": "ゲーミングマウス 軽量",
+      "intent": "手首の疲れを減らしたい人に、重量と接続方式の観点から選択肢を示す",
+      "min_price": 2000,
+      "max_price": 15000,
+      "hits": 3,
+      "status": "pending",
+      "category": "gadget"
+    },
+    {
+      "keyword": "モニターアーム おすすめ",
+      "slug": "monitor-arm",
+      "search_keyword": "モニターアーム",
+      "intent": "デスクを広く使いたい人に、耐荷重と固定方式の選び方を示す",
+      "min_price": 3000,
+      "max_price": 30000,
+      "hits": 3,
+      "status": "pending",
+      "category": "gadget"
+    },
+    {
+      "keyword": "電動昇降デスク 比較",
+      "slug": "standing-desk",
+      "category": "furniture",
+      "search_keyword": "電動昇降デスク",
+      "intent": "",
+      "hits": 3,
+      "status": "pending"
+    }
+  ]
+}

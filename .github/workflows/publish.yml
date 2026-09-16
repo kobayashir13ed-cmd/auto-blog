@@ -1,0 +1,55 @@
+name: 承認された記事を公開する
+
+on:
+  # Cloudflare Worker から repository_dispatch で起動される
+  repository_dispatch:
+    types: [publish-draft]
+  workflow_dispatch:
+    inputs:
+      draft_id:
+        description: "ドラフトID"
+        required: true
+      action:
+        description: "approve または reject"
+        required: true
+        default: approve
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: 公開または却下を実行
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python -m scripts.publish \
+            --draft-id "${{ github.event.client_payload.draft_id || inputs.draft_id }}" \
+            --action "${{ github.event.client_payload.action || inputs.action }}"
+
+      - name: 変更をコミット
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add content/ site/ keywords.json
+          # 変更がない場合にワークフローを失敗させない
+          git diff --staged --quiet || git commit -m "publish: ${{ github.event.client_payload.draft_id || inputs.draft_id }}"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+preview-email.html
+.wrangler/
+node_modules/
+
+# APIキーの類はすべて GitHub Secrets / wrangler secret に入れる。
+# 万一ローカルに置いた場合の保険として除外しておく。
+.env
+secrets.json

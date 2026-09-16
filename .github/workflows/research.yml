@@ -1,0 +1,49 @@
+name: 週次レポート（Search Console分析）
+
+on:
+  schedule:
+    # 毎週月曜の朝8時（日本時間）。cron は UTC なので日曜23時を指定。
+    - cron: "0 23 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Search Console から候補を抽出して candidates.json を更新
+        env:
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
+        run: python -m scripts.research gsc
+
+      - name: 市場性を評価
+        env:
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+        run: python -m scripts.research scan
+
+      - name: 更新をコミット
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add candidates.json
+          git diff --staged --quiet || git commit -m "research: 候補を更新"
+          git push
+
+      - name: レポートをメール送信
+        env:
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+        run: python -m scripts.report

@@ -1,0 +1,32 @@
+{
+  "_使い方": [
+    "記事にするか迷っているキーワードをここに並べ、scan で市場性を評価します。",
+    "評価後は score（0〜100）の高い順に自動で並べ替わります。",
+    "promote コマンドで上位のものが keywords.json に移り、記事生成の対象になります。",
+    "search_keyword は楽天での商品検索語。記事キーワードと変えたいときだけ指定します。",
+    "slug を書いておくと記事URLに使われます（未指定だと自動生成の味気ないURLになります）。"
+  ],
+  "candidates": [
+    {
+      "keyword": "モニターアーム おすすめ",
+      "search_keyword": "モニターアーム",
+      "slug": "monitor-arm",
+      "intent": "デスクを広く使いたい人に、耐荷重と固定方式の選び方を示す",
+      "category": "gadget"
+    },
+    {
+      "keyword": "ゲーミングマウス 軽量 おすすめ",
+      "search_keyword": "ゲーミングマウス 軽量",
+      "slug": "lightweight-gaming-mouse",
+      "intent": "手首の疲れを減らしたい人に、重量と接続方式の観点から選択肢を示す",
+      "category": "gadget"
+    },
+    {
+      "keyword": "電動昇降デスク 比較",
+      "search_keyword": "電動昇降デスク",
+      "slug": "standing-desk",
+      "intent": "長時間座り続ける人に、昇降方式と耐荷重の違いを整理する",
+      "category": "furniture"
+    }
+  ]
+}

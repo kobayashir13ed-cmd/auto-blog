@@ -1,0 +1,41 @@
+{
+  "site_title": "（サイト名をここに）",
+  "site_description": "（サイトの説明を1〜2文で。検索結果に出ます）",
+  "_categories_note": "サイトのカテゴリ。slug がURLになります（/category/<slug>/）。後から変更するとURLが変わり検索評価を失うため、最初に決めてください。記事が1本もないカテゴリのページは生成されません。",
+  "categories": [
+    {
+      "slug": "gadget",
+      "name": "ガジェット",
+      "description": "PC周辺機器・スマホアクセサリなど、日々の作業効率を上げる道具を比較します。"
+    },
+    {
+      "slug": "furniture",
+      "name": "家具・インテリア",
+      "description": "デスク・チェア・収納など、長く使う家具を実データで比較します。"
+    },
+    {
+      "slug": "seasonal",
+      "name": "季節・トレンド",
+      "description": "花粉症対策、暑さ・寒さ対策など、季節ごとに需要が高まるアイテムを扱います。"
+    }
+  ],
+  "author": "（運営者名またはハンドルネーム）",
+  "contact_email": "（問い合わせ用メールアドレス）",
+  "_base_url_note": "GitHub Pages のURL。例: https://ユーザー名.github.io/リポジトリ名",
+  "base_url": "",
+  "_path_prefix_note": "独自ドメインなら \"/\"、github.io のサブパス配信なら \"/リポジトリ名/\"",
+  "path_prefix": "/",
+  "_search_console_note": "Search Console に登録したプロパティと完全に同じ文字列。ドメインプロパティなら sc-domain:example.com 形式。記事公開後に設定すればよい。",
+  "search_console_site": "",
+  "_model_note": "現行モデル（2026年9月時点）: claude-sonnet-5 / claude-opus-5 / claude-haiku-4-5-20251001。記事生成にはコストと品質の釣り合う claude-sonnet-5 を推奨。最新は https://platform.claude.com/docs/en/models/overview で確認。",
+  "model": "claude-sonnet-5",
+  "max_tokens": 8000,
+  "products_per_post": 3,
+  "_require_placeholders_note": "trueだと {{実体験}} が未記入のまま公開できません。外さないことを推奨します。",
+  "require_placeholders_filled": true,
+  "branch": "main",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587
+  }
+}
