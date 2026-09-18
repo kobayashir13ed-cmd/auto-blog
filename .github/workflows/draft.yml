@@ -6,9 +6,10 @@ on:
     - cron: "0 22 * * 1,4"
   workflow_dispatch:      # 手動実行用。最初のテストはこれで回す。
 
-# 生成したドラフトをコミットするため書き込み権限が必要
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   draft:
@@ -23,10 +24,10 @@ jobs:
       - name: 依存パッケージをインストール
         run: pip install -r requirements.txt
 
+      # 楽天の認証情報はここでは不要。商品一覧は読者のブラウザが取得するため、
+      # 値は config.json の rakuten_client に置いてサイトのJSへ埋め込まれる。
       - name: ドラフトを生成
         id: gen
-        # 楽天の認証情報はここでは不要。商品一覧は読者のブラウザが取得するため、
-        # 値は config.json の rakuten_client に置いてサイトのJSへ埋め込まれる。
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python -m scripts.generate
@@ -40,8 +41,10 @@ jobs:
           git commit -m "draft: ${{ steps.gen.outputs.draft_id }}"
           git push
 
-      - name: 承認メールを送信
-        if: steps.gen.outputs.draft_id != ''
+      # --- ここから下は auto_publish の設定で分岐する ---
+
+      - name: 承認メールを送信（auto_publish が false のとき）
+        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish != 'true'
         env:
           APPROVAL_SECRET: ${{ secrets.APPROVAL_SECRET }}
           WORKER_BASE_URL: ${{ secrets.WORKER_BASE_URL }}
@@ -50,3 +53,27 @@ jobs:
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
           NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
         run: python -m scripts.notify --draft-id "${{ steps.gen.outputs.draft_id }}"
+
+      - name: そのまま公開（auto_publish が true のとき）
+        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish == 'true'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python -m scripts.publish \
+            --draft-id "${{ steps.gen.outputs.draft_id }}" --action approve
+
+      - name: 公開結果をコミット（auto_publish が true のとき）
+        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish == 'true'
+        run: |
+          git add content/ site/ keywords.json
+          git diff --staged --quiet || git commit -m "publish: ${{ steps.gen.outputs.draft_id }}"
+          git push
+
+      - uses: actions/configure-pages@v5
+        if: steps.gen.outputs.auto_publish == 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.gen.outputs.auto_publish == 'true'
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        if: steps.gen.outputs.auto_publish == 'true'

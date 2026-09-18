@@ -46,8 +46,8 @@
   "max_tokens": 8000,
   "_products_per_post_note": "比較表に並べる商品数。3〜5件が読みやすい。keywords.json 側の hits で記事ごとに上書きできます。",
   "products_per_post": 3,
-  "_require_placeholders_note": "trueだと {{実体験}} が未記入のまま公開できません。外さないことを推奨します。",
-  "require_placeholders_filled": true,
+  "_auto_publish_note": "true にすると承認メールを送らず、生成した記事をそのまま公開します。false だと承認メールが届き、ボタンを押して初めて公開されます。自動公開は手間ゼロですが、生成内容を誰も確認しないため、事実誤りや不自然な記事がそのまま出ます。まず false で数本見てから切り替えることを推奨します。",
+  "auto_publish": false,
   "branch": "main",
   "_smtp_note": "承認メールの送信元。Gmailの場合は通常のパスワードではなくアプリパスワードが必要です。",
   "smtp": {

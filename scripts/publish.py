@@ -32,20 +32,13 @@ def move_files(draft_id: str, src: Path, dst: Path) -> None:
 def approve(draft_id: str, config: dict) -> None:
     draft = common.read_draft(draft_id)
 
+    # 記事構成から実体験欄を廃止したため、通常は未記入欄は存在しない。
+    # 古いドラフトが残っていた場合だけ検出して止める。
     missing = draft.placeholders()
-    if missing and config.get("require_placeholders_filled", True):
-        repo = common.env("GITHUB_REPOSITORY", required=False)
-        branch = config.get("branch", "main")
-        edit = (f"https://github.com/{repo}/edit/{branch}/content/drafts/{draft_id}.md"
-                if repo else "（リポジトリのドラフトファイル）")
+    if missing:
         sys.exit(
-            f"[公開を中止しました] 未記入の欄が{len(missing)}箇所あります: {missing}\n\n"
-            f"  この欄はあなたの実体験を書く場所です。ここが空のまま公開すると、\n"
-            f"  他サイトと差がない記事になり、検索評価を落とすおそれがあります。\n\n"
-            f"  編集する: {edit}\n"
-            f"  編集後、承認メールのボタンをもう一度押してください。\n\n"
-            f"  （この歯止めを外すには config.json の\n"
-            f"    require_placeholders_filled を false にします）"
+            f"[公開を中止しました] 旧形式の未記入欄が残っています: {missing}\n"
+            f"  このドラフトは旧構成で生成されたものです。却下して作り直してください。"
         )
 
     draft.published_at = common.today_str()
