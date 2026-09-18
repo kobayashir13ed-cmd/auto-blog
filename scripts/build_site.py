@@ -21,6 +21,7 @@ from pathlib import Path
 import markdown as md
 
 from . import common
+from .hikaku import widget
 from .hikaku.table import CSS as TABLE_CSS
 
 SITE_CSS = """
@@ -98,6 +99,7 @@ def head(title: str, description: str, config: dict, canonical: str = "") -> str
 <meta name="description" content="{escape(description)}">
 {canonical_tag}
 <link rel="stylesheet" href="{prefix}style.css">
+<script src="{prefix}rakuten-table.js" defer></script>
 </head>
 <body>
 <header class="site"><div class="container">
@@ -288,7 +290,23 @@ def main() -> None:
         shutil.rmtree(common.SITE)
     common.SITE.mkdir(parents=True)
 
-    (common.SITE / "style.css").write_text(SITE_CSS + "\n" + TABLE_CSS, encoding="utf-8")
+    (common.SITE / "style.css").write_text(
+        SITE_CSS + "\n" + TABLE_CSS + "\n" + widget.EXTRA_CSS, encoding="utf-8")
+
+    # 比較表ウィジェット。楽天の公開キーを埋め込んだJSを書き出す。
+    # このキーはブラウザに露出する前提のもので、楽天側のドメイン制限が防御になる。
+    rakuten = config.get("rakuten_client", {})
+    (common.SITE / "rakuten-table.js").write_text(
+        widget.build_js(
+            application_id=rakuten.get("application_id", ""),
+            access_key=rakuten.get("access_key", ""),
+            affiliate_id=rakuten.get("affiliate_id", ""),
+        ),
+        encoding="utf-8",
+    )
+    if not rakuten.get("access_key"):
+        print("  [注意] config.json の rakuten_client が未設定です。"
+              "比較表は検索リンクのみの表示になります。")
     (common.SITE / "index.html").write_text(render_index(posts, config), encoding="utf-8")
 
     about_dir = common.SITE / "about"

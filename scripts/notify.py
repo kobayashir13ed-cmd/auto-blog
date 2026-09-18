@@ -15,6 +15,7 @@ import smtplib
 import sys
 from email.message import EmailMessage
 from html import escape
+from urllib.parse import quote
 
 import markdown as md
 
@@ -31,14 +32,19 @@ def render_body(draft: common.Draft) -> str:
         extensions=["extra", "sane_lists"],
     )
 
-    # 比較表を差し込む。サイト用HTMLは外部CSS前提で、メールでは <style> が
-    # 削除されて崩れるため、インラインCSSで組んだメール専用版を使う。
-    if draft.email_table_html:
-        html = html.replace("<!--TABLE-->", draft.email_table_html)
-    elif draft.table_html:
-        html = html.replace("<!--TABLE-->", draft.table_html)
-    else:
-        html = html.replace("<!--TABLE-->", "<p><em>（比較表がここに入ります）</em></p>")
+    # 比較表は読者のブラウザが取得するため、メールの時点では中身が存在しない。
+    # 代わりに「何が表示されるか」を確認できる楽天の検索リンクを置く。
+    search_url = ("https://search.rakuten.co.jp/search/mall/"
+                  + quote(draft.keyword) + "/?s=4")
+    html = html.replace("<!--TABLE-->", f"""
+<div style="padding:14px 16px;background:#f6f8fa;border:1px dashed #c3c9d0;
+  border-radius:8px;font-size:13px;color:#57606a;">
+  <strong>ここに比較表が入ります</strong><br>
+  商品一覧は読者がページを開いた時点で楽天市場から自動取得されるため、
+  この時点では中身がありません（価格が常に最新になります）。<br>
+  <a href="{escape(search_url)}" style="color:#0969da;">
+    どんな商品が並ぶかを楽天市場で確認する</a>
+</div>""")
 
     # 未記入欄を赤く目立たせる
     for name in ("実体験", "注意点", "結論"):

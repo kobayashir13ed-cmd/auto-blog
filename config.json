@@ -1,7 +1,8 @@
 {
-  "site_title": "（サイト名をここに）",
-  "site_description": "（サイトの説明を1〜2文で。検索結果に出ます）",
-  "_categories_note": "サイトのカテゴリ。slug がURLになります（/category/<slug>/）。後から変更するとURLが変わり検索評価を失うため、最初に決めてください。記事が1本もないカテゴリのページは生成されません。",
+  "_site_note": "サイトの基本情報。site_title と site_description は検索結果に表示されるので、変えるなら記事が増える前の早い段階で変えてください。",
+  "site_title": "モノサシ",
+  "site_description": "ガジェット・家具・家電を、価格とレビューの実データで比較します。何を基準に選べばよいかから整理します。",
+  "_categories_note": "サイトのカテゴリ。slug がURLになります（/category/<slug>/）。後から変更するとURLが変わり検索評価を失うため、最初に決めてください。記事が1本もないカテゴリはページもナビも生成されないので、多めに定義しておいて構いません。",
   "categories": [
     {
       "slug": "gadget",
@@ -14,26 +15,41 @@
       "description": "デスク・チェア・収納など、長く使う家具を実データで比較します。"
     },
     {
+      "slug": "appliance",
+      "name": "家電",
+      "description": "生活家電から調理家電まで、価格帯ごとの違いと選ぶ基準を整理します。"
+    },
+    {
       "slug": "seasonal",
       "name": "季節・トレンド",
       "description": "花粉症対策、暑さ・寒さ対策など、季節ごとに需要が高まるアイテムを扱います。"
     }
   ],
-  "author": "（運営者名またはハンドルネーム）",
-  "contact_email": "（問い合わせ用メールアドレス）",
+  "_author_note": "運営者情報ページに表示されます。本名である必要はなく、ハンドルネームで構いません。",
+  "author": "モノサシ編集部",
+  "_contact_email_note": "運営者情報ページに公開されます。各ASPの規約で問い合わせ先の掲載が求められるため必要です。",
+  "contact_email": "rikikoba0823@gmail.com",
   "_base_url_note": "GitHub Pages のURL。例: https://ユーザー名.github.io/リポジトリ名",
   "base_url": "https://kobayashir13ed-cmd.github.io/auto-blog",
   "_path_prefix_note": "独自ドメインなら \"/\"、github.io のサブパス配信なら \"/リポジトリ名/\"",
   "path_prefix": "/auto-blog/",
-  "_search_console_note": "Search Console に登録したプロパティと完全に同じ文字列。ドメインプロパティなら sc-domain:example.com 形式。記事公開後に設定すればよい。",
-  "search_console_site": "",
+  "_search_console_note": "Search Console に登録したプロパティと完全に同じ文字列。URLプレフィックス型なら末尾のスラッシュまで一致させること。記事公開後に登録すればよい。",
+  "search_console_site": "https://kobayashir13ed-cmd.github.io/auto-blog/",
+  "_rakuten_client_note": "比較表は読者のブラウザから楽天APIを呼んで描画するため、これらの値はサイトのJSに埋め込まれ公開されます。access_key は pk_ で始まる公開用キーで、楽天側の Allowed websites によるドメイン制限が防御になります。秘密にする値ではありませんが、Allowed websites は自分のドメインだけにしてください。",
+  "rakuten_client": {
+    "application_id": "f805f3ec-aee5-4559-8dfe-78621a3ed4d4",
+    "access_key": "pk_dIcRpCq4iXdYzJe34Ew2iqQ8jfjiUV3uuyzWWYYdnWs",
+    "affiliate_id": "57989289.47524eba.5798928a.3cd1bfae"
+  },
   "_model_note": "現行モデル（2026年9月時点）: claude-sonnet-5 / claude-opus-5 / claude-haiku-4-5-20251001。記事生成にはコストと品質の釣り合う claude-sonnet-5 を推奨。最新は https://platform.claude.com/docs/en/models/overview で確認。",
   "model": "claude-sonnet-5",
   "max_tokens": 8000,
+  "_products_per_post_note": "比較表に並べる商品数。3〜5件が読みやすい。keywords.json 側の hits で記事ごとに上書きできます。",
   "products_per_post": 3,
   "_require_placeholders_note": "trueだと {{実体験}} が未記入のまま公開できません。外さないことを推奨します。",
   "require_placeholders_filled": true,
   "branch": "main",
+  "_smtp_note": "承認メールの送信元。Gmailの場合は通常のパスワードではなくアプリパスワードが必要です。",
   "smtp": {
     "host": "smtp.gmail.com",
     "port": 587

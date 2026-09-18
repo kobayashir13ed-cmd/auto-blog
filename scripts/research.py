@@ -1,21 +1,20 @@
 """キーワード選定ツール。
 
-    python -m scripts.research score --keyword "モニターアーム おすすめ"
-        1件だけ評価して内訳を表示する（お試し用）
-
-    python -m scripts.research scan
-        candidates.json の候補をまとめて評価し、スコア順に並べ替える
-
     python -m scripts.research gsc
         Search Console から実データを取得し、
         リライト候補と新規記事候補を抽出して candidates.json に追記する
 
     python -m scripts.research promote --top 3
-        スコア上位の候補を keywords.json に登録する（記事生成の対象になる）
+        候補を keywords.json に登録する（記事生成の対象になる）
 
-【運用の順序】
-  サイト公開前  … scan で楽天ベースの候補を作り、promote で登録する
-  サイト公開後  … gsc を主軸にする。実データに勝る情報はない。
+【score / scan について】
+  楽天APIを使う市場性評価は現在使えません。楽天がリクエストにRefererを要求するため、
+  サーバーやコマンドラインからは呼べないためです（比較表をブラウザ側で描画しているのと同じ理由）。
+  ブラウザで動くページとして作り直す必要があり、未実装です。
+
+【運用】
+  サイト公開前  … candidates.json に手で候補を並べ、promote で登録する
+  サイト公開後  … gsc を主軸にする。Google公式APIなので影響を受けず、実測値が取れる。
 """
 
 from __future__ import annotations
@@ -89,52 +88,31 @@ def print_rows(title: str, rows: list[gsc.Row], limit: int = 15) -> None:
 # サブコマンド
 # --------------------------------------------------------------------------
 
+SERVER_SIDE_UNAVAILABLE = """\
+[利用できません] 市場性評価はサーバーから楽天APIを呼ぶ必要がありますが、
+  楽天APIはリクエストにRefererを要求するため、GitHub Actionsやコマンドラインからは
+  呼び出せません（比較表をブラウザ側で描画しているのと同じ理由です）。
+
+  この機能はブラウザで動くページとして作り直す必要があります。未実装です。
+
+  現在使えるキーワード選定の手段:
+    python -m scripts.research gsc      Search Consoleの実データから候補を出す
+    python -m scripts.research promote  候補を keywords.json に登録する
+
+  gsc はGoogleのAPIなので影響を受けません。むしろ実測値が取れるぶん、
+  楽天ベースの推定より信頼できます。記事公開後はこちらが主軸になります。
+"""
+
+
 def cmd_score(args: argparse.Namespace) -> None:
     if args.mock:
-        from .generate import mock_products
-        score = market.score_keyword(args.keyword, 4820, mock_products())
-    else:
-        score = market.evaluate(args.keyword, common.env("RAKUTEN_APP_ID"))
-    print_score(score)
+        from .kw.market import MarketScore  # noqa: F401  （モックは構造確認用）
+        sys.exit("--mock は商品データを必要とするため、現在は利用できません。")
+    sys.exit(SERVER_SIDE_UNAVAILABLE)
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
-    data = load_candidates()
-    pending = [c for c in data["candidates"] if args.all or c.get("score") is None]
-
-    if not pending:
-        print("評価対象がありません。candidates.json にキーワードを追加してください。")
-        print("（すでに評価済みのものを再評価するには --all を付けます）")
-        return
-
-    app_id = "" if args.mock else common.env("RAKUTEN_APP_ID")
-    print(f"{len(pending)}件を評価します...\n")
-
-    for entry in pending:
-        keyword = entry["keyword"]
-        try:
-            if args.mock:
-                from .generate import mock_products
-                score = market.score_keyword(keyword, 4820, mock_products())
-            else:
-                score = market.evaluate(
-                    keyword, app_id, entry.get("search_keyword", "")
-                )
-        except RuntimeError as exc:
-            print(f"  [失敗] {keyword}: {exc}")
-            continue
-
-        entry.update({
-            "score": score.total_score,
-            "verdict": market.verdict(score),
-            "detail": score.to_dict(),
-            "evaluated_at": common.today_str(),
-        })
-        print(f"  {score.total_score:>5} / 100  {keyword}")
-
-    save_candidates(data)
-    print(f"\n{CANDIDATES_PATH.name} を更新しました（スコア順に並べ替え済み）。")
-    print("内訳を見るには candidates.json を開くか、score コマンドを使ってください。")
+    sys.exit(SERVER_SIDE_UNAVAILABLE)
 
 
 def cmd_gsc(args: argparse.Namespace) -> None:
@@ -183,7 +161,7 @@ def cmd_gsc(args: argparse.Namespace) -> None:
                 added += 1
         save_candidates(data)
         print(f"\n{added}件を {CANDIDATES_PATH.name} に追加しました。")
-        print("  次: python -m scripts.research scan  で市場性を評価してください。")
+        print("  次: python -m scripts.research promote  で記事化の対象に登録してください。")
 
 
 def overlaps(keyword: str, existing: str) -> bool:
@@ -204,9 +182,14 @@ def overlaps(keyword: str, existing: str) -> bool:
 
 def cmd_promote(args: argparse.Namespace) -> None:
     data = load_candidates()
-    scored = [c for c in data["candidates"] if c.get("score") is not None]
+    # 市場性スコアが使えないため、スコアの有無を問わず候補を対象にする。
+    # スコアがあるものを優先し、無いものは表示回数順に続ける。
+    scored = sorted(
+        data["candidates"],
+        key=lambda c: (-(c.get("score") or 0), -(c.get("impressions") or 0)),
+    )
     if not scored:
-        sys.exit("評価済みの候補がありません。先に scan を実行してください。")
+        sys.exit("候補がありません。candidates.json に追加するか gsc を実行してください。")
 
     keywords = common.load_json(common.KEYWORDS_PATH)
     registered = keywords.get("keywords", [])
@@ -224,7 +207,7 @@ def cmd_promote(args: argparse.Namespace) -> None:
         keyword = candidate["keyword"]
         if keyword in existing:
             continue
-        if candidate["score"] < args.min_score:
+        if candidate.get("score") is not None and candidate["score"] < args.min_score:
             continue
 
         # --- 実質重複の検出 ---
@@ -262,7 +245,9 @@ def cmd_promote(args: argparse.Namespace) -> None:
             no_category.append(keyword)
         candidate["promoted_at"] = common.today_str()
         promoted += 1
-        print(f"  登録: {candidate['keyword']}  (スコア {candidate['score']})")
+        score_text = (f"スコア {candidate['score']}" if candidate.get("score") is not None
+                      else f"表示 {candidate.get('impressions', 0)}回")
+        print(f"  登録: {candidate['keyword']}  ({score_text})")
 
     if skipped:
         print("\n  [見送った候補]")
@@ -302,12 +287,12 @@ def main(argv: list[str] | None = None) -> None:
         prog="research", description="キーワードの選定と評価を行います。")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_score = sub.add_parser("score", help="キーワードを1件評価する")
+    p_score = sub.add_parser("score", help="[現在利用不可] キーワードを1件評価する")
     p_score.add_argument("--keyword", required=True)
     p_score.add_argument("--mock", action="store_true")
     p_score.set_defaults(func=cmd_score)
 
-    p_scan = sub.add_parser("scan", help="candidates.json をまとめて評価する")
+    p_scan = sub.add_parser("scan", help="[現在利用不可] candidates.json をまとめて評価する")
     p_scan.add_argument("--all", action="store_true", help="評価済みも再評価する")
     p_scan.add_argument("--mock", action="store_true")
     p_scan.set_defaults(func=cmd_scan)
