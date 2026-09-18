@@ -123,6 +123,7 @@ def foot(config: dict) -> str:
 def render_post(draft: common.Draft, config: dict) -> str:
     body_html = md.markdown(draft.body, extensions=["extra", "sane_lists", "toc"])
     body_html = body_html.replace("<!--TABLE-->", draft.table_html or "")
+    body_html = body_html.replace("<!--STATS-->", draft.stats_html or "")
 
     # 未記入欄が残ったまま公開された場合、読者に見せないよう除去する
     for name in ("実体験", "注意点", "結論"):
@@ -270,10 +271,13 @@ def render_sitemap(posts: list[common.Draft], config: dict) -> str:
 def load_posts() -> list[common.Draft]:
     posts: list[common.Draft] = []
     for path in sorted(common.POSTS.glob("*.md"), reverse=True):
-        table_path = common.POSTS / f"{path.stem}.table.html"
-        table_html = table_path.read_text(encoding="utf-8") if table_path.exists() else ""
+        def side(suffix: str) -> str:
+            f = common.POSTS / f"{path.stem}{suffix}"
+            return f.read_text(encoding="utf-8") if f.exists() else ""
         try:
-            posts.append(common.Draft.from_text(path.read_text(encoding="utf-8"), table_html))
+            posts.append(common.Draft.from_text(
+                path.read_text(encoding="utf-8"),
+                side(".table.html"), side(".email.html"), side(".stats.html")))
         except (ValueError, KeyError) as exc:
             print(f"  [警告] {path.name} を読み飛ばしました: {exc}")
     return posts

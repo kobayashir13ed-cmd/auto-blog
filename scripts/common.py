@@ -113,6 +113,7 @@ class Draft:
     created_at: str = field(default_factory=today_str)
     published_at: str = ""
     table_html: str = ""            # サイト用の比較表HTML（本文中の <!--TABLE--> に差し込む）
+    stats_html: str = ""            # 集計セクション（ブラウザが中身を埋める）
     email_table_html: str = ""      # 承認メール用（インラインCSS版）
 
     # ---- 保存形式 ----
@@ -136,7 +137,7 @@ class Draft:
 
     @classmethod
     def from_text(cls, text: str, table_html: str = "",
-                  email_table_html: str = "") -> "Draft":
+                  email_table_html: str = "", stats_html: str = "") -> "Draft":
         if not text.startswith(cls.META_OPEN):
             raise ValueError("ドラフトのメタ情報が見つかりません")
         end = text.index(cls.META_CLOSE)
@@ -150,6 +151,7 @@ class Draft:
             created_at=meta.get("created_at", ""),
             published_at=meta.get("published_at", ""),
             table_html=table_html,
+            stats_html=stats_html,
             email_table_html=email_table_html,
         )
 
@@ -174,6 +176,7 @@ def read_draft(draft_id: str, directory: Path = DRAFTS) -> Draft:
         path.read_text(encoding="utf-8"),
         read_side(".table.html"),
         read_side(".email.html"),
+        read_side(".stats.html"),
     )
 
 
@@ -182,6 +185,7 @@ def write_draft(draft: Draft, directory: Path = DRAFTS) -> Path:
     path = draft.path(directory)
     path.write_text(draft.to_text(), encoding="utf-8")
     for suffix, content in ((".table.html", draft.table_html),
+                            (".stats.html", draft.stats_html),
                             (".email.html", draft.email_table_html)):
         if content:
             (directory / f"{draft.id}{suffix}").write_text(content, encoding="utf-8")

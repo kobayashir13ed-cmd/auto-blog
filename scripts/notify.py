@@ -32,6 +32,15 @@ def render_body(draft: common.Draft) -> str:
         extensions=["extra", "sane_lists"],
     )
 
+    # 集計セクションもブラウザ側で計算されるため、メールでは説明に置き換える。
+    html = html.replace("<!--STATS-->", """
+<div style="padding:14px 16px;background:#f6f8fa;border:1px dashed #c3c9d0;
+  border-radius:8px;font-size:13px;color:#57606a;">
+  <strong>ここに集計結果が入ります</strong><br>
+  楽天市場の該当商品を数十件集計した統計（価格の中央値、価格帯ごとの平均評価など）が、
+  読者のページで計算されて表示されます。
+</div>""")
+
     # 比較表は読者のブラウザが取得するため、メールの時点では中身が存在しない。
     # 代わりに「何が表示されるか」を確認できる楽天の検索リンクを置く。
     search_url = ("https://search.rakuten.co.jp/search/mall/"

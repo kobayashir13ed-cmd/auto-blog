@@ -23,7 +23,7 @@ REJECTED = common.CONTENT / "rejected"
 
 def move_files(draft_id: str, src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
-    for suffix in (".md", ".table.html"):
+    for suffix in (".md", ".table.html", ".stats.html", ".email.html"):
         source = src / f"{draft_id}{suffix}"
         if source.exists():
             shutil.move(str(source), str(dst / f"{draft_id}{suffix}"))
@@ -44,7 +44,7 @@ def approve(draft_id: str, config: dict) -> None:
     draft.published_at = common.today_str()
     # 本文はそのまま、メタ情報だけ更新して posts/ へ書き出す
     common.write_draft(draft, common.POSTS)
-    for suffix in (".md", ".table.html"):
+    for suffix in (".md", ".table.html", ".stats.html", ".email.html"):
         stale = common.DRAFTS / f"{draft_id}{suffix}"
         if stale.exists():
             stale.unlink()
