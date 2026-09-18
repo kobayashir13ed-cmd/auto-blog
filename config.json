@@ -1,6 +1,6 @@
 {
   "_site_note": "サイトの基本情報。site_title と site_description は検索結果に表示されるので、変えるなら記事が増える前の早い段階で変えてください。",
-  "site_title": "モノサシ",
+  "site_title": "目利きラボ",
   "site_description": "ガジェット・家具・家電を、価格とレビューの実データで比較します。何を基準に選べばよいかから整理します。",
   "_categories_note": "サイトのカテゴリ。slug がURLになります（/category/<slug>/）。後から変更するとURLが変わり検索評価を失うため、最初に決めてください。記事が1本もないカテゴリはページもナビも生成されないので、多めに定義しておいて構いません。",
   "categories": [
@@ -26,15 +26,15 @@
     }
   ],
   "_author_note": "運営者情報ページに表示されます。本名である必要はなく、ハンドルネームで構いません。",
-  "author": "モノサシ編集部",
+  "author": "目利きラボ編集部",
   "_contact_email_note": "運営者情報ページに公開されます。各ASPの規約で問い合わせ先の掲載が求められるため必要です。",
   "contact_email": "rikikoba0823@gmail.com",
   "_base_url_note": "GitHub Pages のURL。例: https://ユーザー名.github.io/リポジトリ名",
-  "base_url": "https://kobayashir13ed-cmd.github.io/auto-blog",
+  "base_url": "https://mekikilab.com",
   "_path_prefix_note": "独自ドメインなら \"/\"、github.io のサブパス配信なら \"/リポジトリ名/\"",
-  "path_prefix": "/auto-blog/",
+  "path_prefix": "/",
   "_search_console_note": "Search Console に登録したプロパティと完全に同じ文字列。URLプレフィックス型なら末尾のスラッシュまで一致させること。記事公開後に登録すればよい。",
-  "search_console_site": "https://kobayashir13ed-cmd.github.io/auto-blog/",
+  "search_console_site": "https://mekikilab.com/",
   "_rakuten_client_note": "比較表は読者のブラウザから楽天APIを呼んで描画するため、これらの値はサイトのJSに埋め込まれ公開されます。access_key は pk_ で始まる公開用キーで、楽天側の Allowed websites によるドメイン制限が防御になります。秘密にする値ではありませんが、Allowed websites は自分のドメインだけにしてください。",
   "rakuten_client": {
     "application_id": "f805f3ec-aee5-4559-8dfe-78621a3ed4d4",
