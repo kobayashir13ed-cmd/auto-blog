@@ -15,8 +15,9 @@
       "min_price": 2000,
       "max_price": 15000,
       "hits": 3,
-      "status": "pending",
-      "category": "gadget"
+      "status": "drafted",
+      "category": "gadget",
+      "updated_at": "2026-09-18"
     },
     {
       "keyword": "モニターアーム おすすめ",
