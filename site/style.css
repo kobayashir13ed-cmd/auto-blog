@@ -110,3 +110,14 @@ footer.site a{color:var(--muted)}
   .hkg-price{font-size:1.2rem}
   .hkg-btn{flex:1 1 100%}
 }
+
+
+.hkg-catch{font-size:.8rem;color:var(--hkg-muted);margin:0 0 .6rem;line-height:1.6}
+.hkg-catch span{display:inline-block;margin-right:.5rem;padding:.05rem .45rem;
+  border:1px solid var(--hkg-border);border-radius:4px;font-size:.68rem}
+.hkg-loading{font-size:.88rem;color:var(--hkg-muted);padding:1.5rem 0;text-align:center}
+.hkg-fallback{padding:1.2rem;border:1px solid var(--hkg-border);border-radius:12px;
+  background:var(--hkg-card);text-align:center}
+.hkg-fallback p{margin:0 0 .8rem;font-size:.88rem;color:var(--hkg-muted)}
+.hkg-fallback p:last-child{margin:0}
+.hkg-fallback .hkg-btn{flex:0 1 auto;padding:.6rem 1.2rem}
