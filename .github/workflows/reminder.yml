@@ -1,0 +1,32 @@
+name: 週次リマインダー
+
+# 公開直後にやることは「決まったタイミングで数字を見る」だけだが、それを忘れる。
+# 週1でメールを送り、経過日数に応じて見るべき場所だけを伝える。
+# 不要になったらこのファイルを削除するか、Actions画面で無効化する。
+
+on:
+  schedule:
+    # 毎週金曜の朝9時（日本時間）。cron は UTC なので 9:00 JST = 0:00 UTC 同日。
+    - cron: "0 0 * * 5"
+  workflow_dispatch:      # 手動でも送れる（動作確認用）
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 依存関係
+        run: pip install --quiet markdown
+
+      - name: リマインダーを送信
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+        run: python -m scripts.remind

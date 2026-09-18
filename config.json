@@ -35,6 +35,8 @@
   "path_prefix": "/",
   "_search_console_note": "Search Console のプロパティ名と完全に一致させること。ドメインプロパティは sc-domain:example.com 形式、URLプレフィックス型は https://example.com/ 形式。",
   "search_console_site": "sc-domain:mekikilab.com",
+  "_monitor_start_note": "監視の起点日（サイトを公開した日）。週次リマインダーが、この日からの経過日数で「今週見るべきもの」を切り替えます。実際の公開日と違っていたら直してください。",
+  "monitor_start": "2026-09-15",
   "_rakuten_client_note": "比較表は読者のブラウザから楽天APIを呼んで描画するため、これらの値はサイトのJSに埋め込まれ公開されます。access_key は pk_ で始まる公開用キーで、楽天側の Allowed websites によるドメイン制限が防御になります。秘密にする値ではありませんが、Allowed websites は自分のドメインだけにしてください。",
   "rakuten_client": {
     "application_id": "f805f3ec-aee5-4559-8dfe-78621a3ed4d4",
