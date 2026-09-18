@@ -33,8 +33,8 @@
   "base_url": "https://mekikilab.com",
   "_path_prefix_note": "独自ドメインなら \"/\"、github.io のサブパス配信なら \"/リポジトリ名/\"",
   "path_prefix": "/",
-  "_search_console_note": "Search Console に登録したプロパティと完全に同じ文字列。URLプレフィックス型なら末尾のスラッシュまで一致させること。記事公開後に登録すればよい。",
-  "search_console_site": "https://mekikilab.com/",
+  "_search_console_note": "Search Console のプロパティ名と完全に一致させること。ドメインプロパティは sc-domain:example.com 形式、URLプレフィックス型は https://example.com/ 形式。",
+  "search_console_site": "sc-domain:mekikilab.com",
   "_rakuten_client_note": "比較表は読者のブラウザから楽天APIを呼んで描画するため、これらの値はサイトのJSに埋め込まれ公開されます。access_key は pk_ で始まる公開用キーで、楽天側の Allowed websites によるドメイン制限が防御になります。秘密にする値ではありませんが、Allowed websites は自分のドメインだけにしてください。",
   "rakuten_client": {
     "application_id": "f805f3ec-aee5-4559-8dfe-78621a3ed4d4",
