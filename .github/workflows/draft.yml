@@ -2,9 +2,9 @@ name: 記事ドラフトを生成して承認メールを送る
 
 on:
   schedule:
-    # 月・水・金の朝7時（日本時間）。cron は UTC なので -9時間すると前日22:00 になり、
-    # 曜日も1つ前へずれる（月→日=0, 水→火=2, 金→木=4）。
-    - cron: "0 22 * * 0,2,4"
+    # 平日（月〜金）の朝7時（日本時間）。cron は UTC なので -9時間すると前日22:00 になり、
+    # 曜日も1つ前へずれる（月→日=0 … 金→木=4）。よって日〜木 = 0-4 を指定する。
+    - cron: "0 22 * * 0-4"
   workflow_dispatch:      # 手動実行用。最初のテストはこれで回す。
 
 permissions:
@@ -27,6 +27,15 @@ jobs:
 
       # 楽天の認証情報はここでは不要。商品一覧は読者のブラウザが取得するため、
       # 値は config.json の rakuten_client に置いてサイトのJSへ埋め込まれる。
+      # 在庫が尽きると記事が作られなくなるため、少なくなったら先に補充する。
+      # 在庫が足りているときはAPIを呼ばずに即終了するので、毎回走らせて問題ない。
+      # ここで失敗しても記事生成は続ける（補充は次回でも間に合う）。
+      - name: キーワードの在庫を確認し、少なければ補充する
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m scripts.research generate --min-stock 10 --count 12
+
       - name: ドラフトを生成
         id: gen
         env:

@@ -78,13 +78,42 @@ def env(name: str, required: bool = True, default: str = "") -> str:
 # キーワード管理
 # --------------------------------------------------------------------------
 
+def season_priority(entry: dict, month: int | None = None) -> int:
+    """季節性から記事化の優先度を返す。小さいほど先に書く。
+
+    記事は公開してからインデックスされ、順位が付くまでに数週間かかる。
+    そのため需要の山に間に合わせるには先回りして出す必要がある。
+    逆に山を過ぎたキーワードを今出しても、次の山まで1年近く眠る。
+    """
+    peak = entry.get("peak_month")
+    if not peak:
+        return 2                       # 通年。いつ出しても価値が変わらない
+    ahead = (int(peak) - (month or now_jst().month)) % 12
+    if 1 <= ahead <= 3:
+        return 0                       # 仕込みに最適
+    if ahead == 4:
+        return 1                       # やや早いが許容範囲
+    if ahead == 0:
+        return 2                       # ピーク中。今からでは間に合いにくい
+    return 3                           # 季節外れ。後回し
+
+
+def pending_keywords(data: dict) -> list[dict]:
+    """未着手のキーワードを、記事化すべき順に並べて返す。"""
+    pending = [e for e in data.get("keywords", [])
+               if e.get("status", "pending") == "pending"]
+    # sort は安定なので、優先度が同じものはファイルの並び順が保たれる
+    pending.sort(key=season_priority)
+    return pending
+
+
 def next_keyword() -> tuple[dict, dict] | tuple[None, None]:
     """未着手のキーワードを1件返す。(該当エントリ, 全体データ) を返す。"""
     data = load_json(KEYWORDS_PATH)
-    for entry in data.get("keywords", []):
-        if entry.get("status", "pending") == "pending":
-            return entry, data
-    return None, None
+    pending = pending_keywords(data)
+    if not pending:
+        return None, None
+    return pending[0], data
 
 
 def mark_keyword(data: dict, keyword: str, status: str) -> None:

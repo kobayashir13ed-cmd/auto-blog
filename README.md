@@ -3,7 +3,7 @@
 キーワードを登録しておくと、記事が自動生成され、承認ボタン1つで公開されます。
 
 ```
-[週3回 自動]                      [あなた]            [自動]
+[平日毎日 自動]                      [あなた]            [自動]
 キーワードを1件取り出す
   ↓
 Claude APIで本文を生成       →   メールで読む    →   サイトに公開
@@ -48,7 +48,9 @@ Claude は一般論で間違えることがあります（「耐荷重は一般�
 
 ### キーワードを追加する
 
-`keywords.json` に追記します。上から順に1回の実行で1件ずつ消費されます。
+`keywords.json` に追記します。1回の実行で1件ずつ消費されます。
+消費する順番は `peak_month`（需要のピーク月）で決まり、ピークの1〜3ヶ月前のものが優先されます。
+記事は公開してから順位が付くまで時間がかかるため、季節ものは先回りして出す必要があるからです。
 
 ```json
 {
@@ -76,7 +78,7 @@ Claude は一般論で間違えることがあります（「耐荷重は一般�
 
 **Actions → 「記事ドラフトを生成して承認メールを送る」→ Run workflow**
 
-自動実行は `.github/workflows/draft.yml` で**月・水・金の朝7時（日本時間）**。cron は UTC 指定なので、日本時間から9時間引き、曜日も1つ前にずれます。
+自動実行は `.github/workflows/draft.yml` で**平日（月〜金）の朝7時（日本時間）**。cron は UTC 指定なので、日本時間から9時間引き、曜日も1つ前にずれます。
 
 ### 承認する
 
@@ -130,6 +132,10 @@ Claude は一般論で間違えることがあります（「耐荷重は一般�
 ```bash
 python -m scripts.research gsc       # Search Console の実データから候補を抽出
 python -m scripts.research promote   # 候補を keywords.json に登録
+python -m scripts.research seed      # keywords_seed.json をまとめて登録（重複はスキップ）
+python -m scripts.research generate --min-stock 10 --count 12
+                                     # 在庫が10件を切っていたら自動で12件補充する
+                                     # 足りているときは何もしない。draft.yml が毎回呼ぶ
 ```
 
 `gsc` は2つを出します。
@@ -165,11 +171,12 @@ cd site && python -m http.server 8000                  # ブラウザで確認
 ```
 auto-blog/
 ├── config.json              サイト設定
-├── keywords.json            記事にするキーワード
+├── keywords.json            記事にするキーワード（在庫）
+├── keywords_seed.json       まとめて登録するキーワードの種（research seed で取り込む）
 ├── candidates.json          キーワード候補（gsc が追記）
 ├── static/                  そのままサイトへコピーされる（CNAME など）
 ├── .github/workflows/
-│   ├── draft.yml            週3回：生成 → メール送信（または自動公開）
+│   ├── draft.yml            平日毎日：在庫補充 → 生成 → メール送信（または自動公開）
 │   ├── publish.yml          承認を受けて公開
 │   ├── deploy.yml           サイトだけ再生成（手動）
 │   └── research.yml         週次：Search Console分析 → レポート

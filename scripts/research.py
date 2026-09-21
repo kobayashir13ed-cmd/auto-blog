@@ -7,6 +7,14 @@
     python -m scripts.research promote --top 3
         候補を keywords.json に登録する（記事生成の対象になる）
 
+    python -m scripts.research seed
+        keywords_seed.json に手で並べたキーワードをまとめて登録する
+        （重複はスキップするので何度実行しても安全）
+
+    python -m scripts.research generate --min-stock 10 --count 10
+        未着手の在庫が10件を切っていたら、Claude APIで10件補充する
+        在庫が足りているときは何もせず終了するので、毎回呼んで構わない
+
 【score / scan について】
   楽天APIを使う市場性評価は現在使えません。楽天がリクエストにRefererを要求するため、
   サーバーやコマンドラインからは呼べないためです（比較表をブラウザ側で描画しているのと同じ理由）。
@@ -20,13 +28,32 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 
-from . import common
+from . import claude_api, common
 from .kw import gsc, market
 
 CANDIDATES_PATH = common.ROOT / "candidates.json"
+SEED_PATH = common.ROOT / "keywords_seed.json"
+
+# 月ごとの需要テーマ。キーワード自動生成のときに、この月の3ヶ月先を狙う。
+# APIも外部データも要らず、カレンダーだけで決まるのが利点。
+SEASON_THEMES = {
+    1: "寒さのピーク、結露、乾燥、防寒",
+    2: "花粉の飛び始め、乾燥、引っ越し準備",
+    3: "花粉のピーク、新生活の準備、衣替え",
+    4: "新生活、紫外線、梅雨前の除湿準備",
+    5: "梅雨入り前の湿気対策、初夏の暑さ",
+    6: "梅雨、カビ、部屋干し、湿気",
+    7: "猛暑、熱中症、冷感グッズ、扇風機",
+    8: "残暑、帰省、夏の後片付け",
+    9: "秋の衣替え、乾燥の始まり、在宅環境の見直し",
+    10: "本格的な乾燥、暖房の準備、寝具の入れ替え",
+    11: "本格的な寒さ、暖房、防寒、年末の準備",
+    12: "年末大掃除、年賀状、暖房のピーク、静電気",
+}
 
 
 def load_candidates() -> dict:
@@ -180,6 +207,191 @@ def overlaps(keyword: str, existing: str) -> bool:
     return a <= b or b <= a
 
 
+# --------------------------------------------------------------------------
+# キーワードの補充
+# --------------------------------------------------------------------------
+
+def _register(entries: list[dict], cand: dict) -> str:
+    """登録して良いか判定する。問題なければ "" を、駄目なら理由を返す。
+
+    弾く条件は3つ。いずれも「2本出すと両方の順位が下がる」状態を避けるため。
+    """
+    keyword = (cand.get("keyword") or "").strip()
+    slug = (cand.get("slug") or "").strip()
+    if not keyword or not slug:
+        return "keyword か slug が空"
+    if not re.fullmatch(r"[a-z0-9-]+", slug):
+        return f"slugに使えない文字: {slug}"
+    for e in entries:
+        if e.get("keyword") == keyword:
+            return "既に登録済み"
+        if e.get("slug") == slug:
+            return f"slugが衝突: {slug}"
+        if overlaps(keyword, e.get("keyword", "")):
+            return f"既存と共食い: {e.get('keyword')}"
+    return ""
+
+
+def cmd_seed(args: argparse.Namespace) -> None:
+    """keywords_seed.json の内容を keywords.json に取り込む。
+
+    何度実行しても同じ結果になる（重複はスキップする）ので、
+    プッシュのたびに走らせても壊れない。
+    """
+    seed = common.load_json(SEED_PATH)
+    data = common.load_json(common.KEYWORDS_PATH)
+    entries = data.setdefault("keywords", [])
+
+    # 既存キーワードにピーク月を後付けする
+    peaks = seed.get("peak_months", {})
+    updated = 0
+    for e in entries:
+        peak = peaks.get(e.get("keyword"))
+        if peak and e.get("peak_month") != peak:
+            e["peak_month"] = peak
+            updated += 1
+
+    added, skipped = 0, []
+    for cand in seed.get("keywords", []):
+        reason = _register(entries, cand)
+        if reason:
+            skipped.append((cand.get("keyword", "?"), reason))
+            continue
+        entries.append(dict(cand))
+        added += 1
+
+    common.save_json(common.KEYWORDS_PATH, data)
+
+    print(f"{added}件を追加しました（ピーク月を付けた既存キーワード: {updated}件）")
+    if skipped:
+        print(f"  スキップ {len(skipped)}件:")
+        for kw, reason in skipped[:10]:
+            print(f"    - {kw} … {reason}")
+    pending = len(common.pending_keywords(data))
+    print(f"  未着手の在庫: {pending}件")
+
+
+def _build_generate_prompt(count: int, categories: list[dict],
+                           existing: list[str], month: int) -> str:
+    target = (month + 2 - 1) % 12 + 1          # 2ヶ月先の月
+    cats = "\n".join(
+        f"  - {c['slug']}: {c['name']}（{c.get('description', '')}）" for c in categories
+    )
+    avoid = "\n".join(f"  - {k}" for k in existing)
+    return f"""日本語の商品比較ブログ用に、検索キーワードを{count}件考えてください。
+
+【カテゴリ】以下のいずれかに必ず割り当てること。
+{cats}
+
+【季節】今は{month}月です。記事は公開後、検索で順位が付くまで1〜2ヶ月かかります。
+そのため{target}月ごろに需要が高まるものを半分ほど含めてください。
+{target}月のテーマ: {SEASON_THEMES.get(target, '通年')}
+残り半分は季節に関係なく年中検索される悩みにしてください。
+
+【キーワードの条件】最重要です。
+1. 3〜5語の具体的な「困りごと」にすること。
+   良い例: 「モニターアーム 天板 厚い 挟めない」「加湿器 手入れ 楽 カビ」
+   悪い例: 「モニターアーム おすすめ」「加湿器 比較」← 競合が強すぎて勝てない
+2. 商品名やブランド名を入れないこと。
+3. 楽天市場で実際に商品が出てくるジャンルにすること。
+
+【既に登録済みのキーワード】これらと内容が重なるものは避けてください。
+{avoid}
+
+【出力】JSONの配列だけを返してください。説明文は不要です。
+各要素は次のキーを持ちます。
+
+[
+  {{
+    "keyword": "検索キーワード（3〜5語、半角スペース区切り）",
+    "slug": "url-friendly-slug（半角英数字とハイフンのみ、3〜5語）",
+    "category": "カテゴリのslug",
+    "search_keyword": "楽天の商品検索に使う短い語（2〜3語）",
+    "intent": "この記事が誰の何を解決するかを1文で",
+    "min_price": 下限価格の整数,
+    "max_price": 上限価格の整数,
+    "peak_month": 需要ピークの月(1-12)。通年なら null,
+    "hits": 4,
+    "status": "pending"
+  }}
+]"""
+
+
+def _parse_json_array(text: str) -> list[dict]:
+    """応答からJSON配列を取り出す。前後に説明文が付いていても拾う。"""
+    cleaned = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+    start, end = cleaned.find("["), cleaned.rfind("]")
+    if start == -1 or end == -1:
+        raise RuntimeError(f"応答からJSONを取り出せませんでした:\n{text[:300]}")
+    return json.loads(cleaned[start:end + 1])
+
+
+def cmd_generate(args: argparse.Namespace) -> None:
+    """キーワードを自動生成して keywords.json に追加する。
+
+    在庫が min_stock 以上あるときは何もせずに終了する。
+    GitHub Actions から毎回呼んでも、減ったときだけAPIを使う。
+    """
+    config = common.load_config()
+    data = common.load_json(common.KEYWORDS_PATH)
+    stock = len(common.pending_keywords(data))
+
+    if stock >= args.min_stock:
+        print(f"未着手の在庫は{stock}件あります（補充の下限は{args.min_stock}件）。何もしません。")
+        return
+
+    print(f"未着手の在庫が{stock}件まで減ったので、{args.count}件を生成します。")
+    entries = data.setdefault("keywords", [])
+    month = common.now_jst().month
+    prompt = _build_generate_prompt(
+        args.count, config.get("categories", []),
+        [e.get("keyword", "") for e in entries], month,
+    )
+
+    text = claude_api.complete(
+        prompt=prompt,
+        api_key=common.env("ANTHROPIC_API_KEY"),
+        model=config.get("model", "claude-sonnet-5"),
+        max_tokens=4000,
+    )
+    candidates = _parse_json_array(text)
+
+    added, skipped = 0, []
+    valid_cats = {c["slug"] for c in config.get("categories", [])}
+    for cand in candidates:
+        if cand.get("category") not in valid_cats:
+            skipped.append((cand.get("keyword", "?"), f"不明なカテゴリ: {cand.get('category')}"))
+            continue
+        reason = _register(entries, cand)
+        if reason:
+            skipped.append((cand.get("keyword", "?"), reason))
+            continue
+        cand.setdefault("hits", 4)
+        cand["status"] = "pending"
+        cand["generated_at"] = common.today_str()
+        entries.append(cand)
+        added += 1
+
+    if args.dry_run:
+        print(f"[確認のみ] {added}件が追加対象です。ファイルは書き換えていません。")
+        for e in entries[-added:] if added else []:
+            print(f"    - {e['keyword']}  ({e['category']}, peak={e.get('peak_month')})")
+        return
+
+    common.save_json(common.KEYWORDS_PATH, data)
+    print(f"{added}件を追加しました。在庫は{len(common.pending_keywords(data))}件になりました。")
+    for e in entries[-added:] if added else []:
+        print(f"    - {e['keyword']}  ({e['category']}, peak={e.get('peak_month')})")
+    if skipped:
+        print(f"  除外 {len(skipped)}件:")
+        for kw, reason in skipped[:10]:
+            print(f"    - {kw} … {reason}")
+
+
 def cmd_promote(args: argparse.Namespace) -> None:
     data = load_candidates()
     # 市場性スコアが使えないため、スコアの有無を問わず候補を対象にする。
@@ -312,6 +524,19 @@ def main(argv: list[str] | None = None) -> None:
     p_promote.add_argument("--force", action="store_true",
                            help="既存キーワードと内容が重複していても登録する")
     p_promote.set_defaults(func=cmd_promote)
+
+    p_seed = sub.add_parser(
+        "seed", help="keywords_seed.json をまとめて keywords.json に取り込む")
+    p_seed.set_defaults(func=cmd_seed)
+
+    p_gen = sub.add_parser(
+        "generate", help="在庫が減っていればキーワードを自動生成して補充する")
+    p_gen.add_argument("--count", type=int, default=10, help="生成する件数")
+    p_gen.add_argument("--min-stock", type=int, default=10,
+                       help="未着手がこの件数以上あるときは何もしない")
+    p_gen.add_argument("--dry-run", action="store_true",
+                       help="生成結果を表示するだけで保存しない")
+    p_gen.set_defaults(func=cmd_generate)
 
     args = parser.parse_args(argv)
     try:
