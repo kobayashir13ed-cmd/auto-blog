@@ -17,7 +17,8 @@
       "min_price": 3000,
       "max_price": 30000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-09-21"
     },
     {
       "keyword": "ゲーミングマウス 手が小さい 軽量",
