@@ -121,3 +121,23 @@ footer.site a{color:var(--muted)}
 .hkg-fallback p{margin:0 0 .8rem;font-size:.88rem;color:var(--hkg-muted)}
 .hkg-fallback p:last-child{margin:0}
 .hkg-fallback .hkg-btn{flex:0 1 auto;padding:.6rem 1.2rem}
+
+/* 並び替えタブ */
+.hkg-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+.hkg-tabs button{padding:.5rem 1rem;border:1px solid var(--hkg-border);border-radius:999px;
+  background:var(--hkg-card);color:var(--hkg-muted);font-size:.82rem;font-weight:700;
+  cursor:pointer;font-family:inherit}
+.hkg-tabs button:hover{color:var(--hkg-fg)}
+.hkg-tabs button.is-active{background:var(--hkg-accent);border-color:var(--hkg-accent);color:#fff}
+
+/* 集計表 */
+.hkg-stats-table{width:100%;border-collapse:collapse;font-size:.88rem;
+  border:1px solid var(--hkg-border);border-radius:10px;overflow:hidden}
+.hkg-stats-table th,.hkg-stats-table td{padding:.6rem .9rem;text-align:left;
+  border-bottom:1px solid var(--hkg-border)}
+.hkg-stats-table th{width:48%;font-weight:500;color:var(--hkg-muted);background:var(--hkg-card)}
+.hkg-stats-table td{font-weight:700}
+.hkg-stats-table tr:last-child th,.hkg-stats-table tr:last-child td{border-bottom:0}
+.hkg-stats-note{font-size:.88rem;line-height:1.8;margin:1rem 0 0;padding:.9rem 1.1rem;
+  background:var(--hkg-accent-soft);border-radius:8px}
+@media (max-width:600px){.hkg-stats-table th{width:52%}}
