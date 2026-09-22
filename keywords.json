@@ -322,7 +322,8 @@
       "max_price": 40000,
       "hits": 4,
       "peak_month": 12,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-09-23"
     },
     {
       "keyword": "チェアマット フローリング 傷 防止",
