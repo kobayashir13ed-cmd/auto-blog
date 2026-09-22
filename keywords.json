@@ -176,8 +176,9 @@
       "min_price": 3000,
       "max_price": 25000,
       "hits": 4,
-      "status": "pending",
-      "peak_month": 12
+      "status": "drafted",
+      "peak_month": 12,
+      "updated_at": "2026-09-22"
     },
     {
       "keyword": "モバイルバッテリー 飛行機 持ち込み 容量",
