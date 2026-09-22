@@ -7,7 +7,7 @@
   "category": "appliance",
   "description": "加湿器のカビ・手入れの手間で悩む人向けに、加湿方式ごとの掃除のしやすさを比較する基準を解説。購入前に確認すべき仕様も紹介します。",
   "created_at": "2026-09-22",
-  "published_at": ""
+  "published_at": "2026-09-22"
 }
 -->
 
