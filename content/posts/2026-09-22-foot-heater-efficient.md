@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "足元だけを暖めて電気代を抑えたい人向けに、消費電力や暖め方の違いから選び方の基準をわかりやすく整理しました。",
   "created_at": "2026-09-22",
-  "published_at": ""
+  "published_at": "2026-09-22"
 }
 -->
 
