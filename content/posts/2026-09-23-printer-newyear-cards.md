@@ -7,7 +7,7 @@
   "category": "gadget",
   "description": "年に一度だけ年賀状印刷に使うプリンターを選ぶための、インク方式や維持費の違いを基準にした選び方ガイドです。",
   "created_at": "2026-09-23",
-  "published_at": ""
+  "published_at": "2026-09-23"
 }
 -->
 
