@@ -48,8 +48,20 @@ jobs:
           git config user.name "auto-blog"
           git config user.email "actions@github.com"
           git add content/ keywords.json
+          if git diff --staged --quiet; then
+            echo "コミットする変更はありません。"
+            exit 0
+          fi
           git commit -m "draft: ${{ steps.gen.outputs.draft_id }}"
-          git push
+          # 他のワークフローや手元からのプッシュとぶつかることがある。
+          # その場合はリモートを取り込んでから押し直す。
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
+            git pull --rebase
+          done
+          echo "3回試しましたがプッシュできませんでした。" >&2
+          exit 1
 
       # --- ここから下は auto_publish の設定で分岐する ---
 
@@ -76,8 +88,20 @@ jobs:
         if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish == 'true'
         run: |
           git add content/ site/ keywords.json
-          git diff --staged --quiet || git commit -m "publish: ${{ steps.gen.outputs.draft_id }}"
-          git push
+          if git diff --staged --quiet; then
+            echo "コミットする変更はありません。"
+            exit 0
+          fi
+          git commit -m "publish: ${{ steps.gen.outputs.draft_id }}"
+          # 他のワークフローや手元からのプッシュとぶつかることがある。
+          # その場合はリモートを取り込んでから押し直す。
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
+            git pull --rebase
+          done
+          echo "3回試しましたがプッシュできませんでした。" >&2
+          exit 1
 
       - uses: actions/configure-pages@v5
         if: steps.gen.outputs.auto_publish == 'true'

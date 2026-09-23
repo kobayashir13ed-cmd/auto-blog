@@ -21,6 +21,20 @@ from . import build_site, common
 REJECTED = common.CONTENT / "rejected"
 
 
+def already_done(draft_id: str) -> str:
+    """すでに処理済みかを調べ、"published" / "rejected" / "" を返す。
+
+    承認メールのリンクは何度でも押せてしまう。1回目で公開するとドラフトは
+    posts/ へ移動するため、2回目は「ファイルが無い」で異常終了していた。
+    これは操作ミスではなく二度押しなので、エラーにせず正常終了させる。
+    """
+    if (common.POSTS / f"{draft_id}.md").exists():
+        return "published"
+    if (REJECTED / f"{draft_id}.md").exists():
+        return "rejected"
+    return ""
+
+
 def move_files(draft_id: str, src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for suffix in (".md", ".table.html", ".stats.html", ".email.html"):
@@ -77,6 +91,19 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     config = common.load_config()
+
+    done = already_done(args.draft_id)
+    if done:
+        label = "公開済み" if done == "published" else "却下済み"
+        print(f"この記事はすでに{label}です: {args.draft_id}")
+        if done == "published":
+            print("  承認リンクを二度押すとこうなります。"
+                  "記事は正常に公開されているので、何もする必要はありません。")
+        else:
+            print("  もう一度記事にしたい場合は、キーワードが pending に戻っているので"
+                  "次回以降の生成で書き直されます。")
+        return
+
     if args.action == "approve":
         approve(args.draft_id, config)
     else:
