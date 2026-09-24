@@ -7,7 +7,7 @@
   "category": "furniture",
   "description": "洗濯機で洗えて床暖房にも使えるラグを選ぶ際に見るべき対応表記や滑り止め仕様の基準を、商品ページの確認項目とあわせて整理しました。",
   "created_at": "2026-09-24",
-  "published_at": ""
+  "published_at": "2026-09-24"
 }
 -->
 
