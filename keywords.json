@@ -419,7 +419,8 @@
       "max_price": 30000,
       "hits": 4,
       "peak_month": 10,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-09-24"
     },
     {
       "keyword": "炊飯器 一人暮らし 少量 べちゃつく",
