@@ -21,10 +21,12 @@ jobs:
           python-version: "3.11"
 
       - name: 依存関係
-        run: pip install --quiet markdown
+        run: pip install --quiet -r requirements.txt
 
       - name: リマインダーを送信
         env:
+          # 未登録でもエラーにならない。その場合は数字の欄を省いて送る。
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}

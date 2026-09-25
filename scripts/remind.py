@@ -17,6 +17,7 @@ from html import escape
 from urllib.parse import quote
 
 from . import common, notify
+from .kw import gsc
 
 # Search Console のプロパティを直接開くURL
 GSC_BASE = "https://search.google.com/search-console"
@@ -106,7 +107,102 @@ def phase(days: int, site: str) -> dict:
     }
 
 
-def build_html(info: dict, days: int, config: dict) -> str:
+# --------------------------------------------------------------------------
+# Search Console の数字
+# --------------------------------------------------------------------------
+
+def fetch_numbers(config: dict) -> dict | None:
+    """過去28日の検索パフォーマンスを取る。取れなければ None を返す。
+
+    ここで例外を握りつぶしているのは意図的。リマインダーの本体は
+    「今週やること」を届けることであって、数字はおまけ。
+    認証が未設定でもAPIが落ちていても、メールは必ず届くべきなので、
+    数字の取得失敗でメール全体を失敗させない。
+    """
+    credentials = common.env("GSC_CREDENTIALS", required=False)
+    if not credentials:
+        return None
+    site = config.get("search_console_site", "")
+    if not site:
+        return None
+    try:
+        return {
+            "queries": gsc.query(site, credentials, ["query"], days=28),
+            "pages": gsc.query(site, credentials, ["page"], days=28),
+        }
+    except Exception as exc:                        # noqa: BLE001 — 上のコメント参照
+        print(f"[注意] Search Console から数字を取得できませんでした: {exc}")
+        print("       メールは数字なしで送ります。")
+        return None
+
+
+def verdict(impressions: int) -> str:
+    """表示回数を、事前に決めた判断基準に照らして一文にする。"""
+    if impressions == 0:
+        return ("まだ表示されていません。インデックスされてから順位が付くまで"
+                "1〜2ヶ月かかるので、この時期はこれで正常です。")
+    if impressions < 100:
+        return ("検索結果に出始めました。まだ少ないですが、ゼロと1桁では意味が違います。"
+                "ここから増えるかを見ます。")
+    if impressions < 1000:
+        return ("事前に決めた基準（月100表示）を超えています。方向性は合っているので、"
+                "記事を増やす段階です。")
+    return ("十分な表示回数です。ここからはクリック率（CTR）と順位を見て、"
+            "既存記事の改善に力を入れる段階です。")
+
+
+def numbers_html(data: dict) -> str:
+    pages, queries = data["pages"], data["queries"]
+    impressions = sum(r.impressions for r in pages)
+    clicks = sum(r.clicks for r in pages)
+
+    def rows(items: list, label: str) -> str:
+        if not items:
+            return (f'<p style="font-size:13px;color:#57606a;margin:0 0 14px;">'
+                    f'{label}：まだありません</p>')
+        top = sorted(items, key=lambda r: -r.impressions)[:5]
+        cells = "".join(
+            f'<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e5e9;'
+            f'font-size:13px;word-break:break-all;">{escape(str(r.key))}</td>'
+            f'<td style="padding:6px 8px;border-bottom:1px solid #e2e5e9;'
+            f'font-size:13px;text-align:right;white-space:nowrap;">'
+            f'{r.impressions:,}回 / {r.position:.0f}位</td></tr>'
+            for r in top
+        )
+        return (f'<p style="font-size:13px;color:#57606a;margin:14px 0 6px;">'
+                f'<strong>{label}</strong></p>'
+                f'<table cellpadding="0" cellspacing="0" width="100%" '
+                f'style="border-collapse:collapse;margin:0 0 6px;">{cells}</table>')
+
+    return f"""
+<div style="border:1px solid #e2e5e9;border-radius:8px;padding:16px;margin:0 0 20px;">
+  <div style="font-family:sans-serif;font-size:13px;color:#57606a;margin:0 0 10px;">
+    過去28日間の検索パフォーマンス
+  </div>
+  <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 12px;">
+    <tr>
+      <td style="font-family:sans-serif;">
+        <div style="font-size:26px;font-weight:bold;color:#1a1c1f;">{impressions:,}</div>
+        <div style="font-size:12px;color:#57606a;">表示回数</div>
+      </td>
+      <td style="font-family:sans-serif;">
+        <div style="font-size:26px;font-weight:bold;color:#1a1c1f;">{clicks:,}</div>
+        <div style="font-size:12px;color:#57606a;">クリック</div>
+      </td>
+    </tr>
+  </table>
+  <div style="font-family:sans-serif;font-size:13px;line-height:1.8;color:#24292f;
+    background:#f6f8fa;padding:10px 12px;border-radius:6px;">{escape(verdict(impressions))}</div>
+  <div style="font-family:sans-serif;">
+    {rows(queries, "よく表示されている検索語（表示回数 / 平均順位）")}
+    {rows(pages, "よく表示されているページ")}
+  </div>
+</div>"""
+
+
+def build_html(info: dict, days: int, config: dict,
+               data: dict | None = None) -> str:
+    numbers = numbers_html(data) if data else ""
     actions = ""
     if info["actions"]:
         items = "".join(
@@ -138,6 +234,7 @@ def build_html(info: dict, days: int, config: dict) -> str:
       color:#1a1c1f;line-height:1.45;padding:0 0 14px;">{escape(info['headline'])}</div>
     <div style="font-family:sans-serif;font-size:14px;line-height:1.85;
       color:#24292f;padding:0 0 18px;">{escape(info['body'])}</div>
+    {numbers}
     {actions}
     {button}
     <div style="font-family:sans-serif;font-size:12px;color:#888;
@@ -151,8 +248,12 @@ def build_html(info: dict, days: int, config: dict) -> str:
 </body></html>"""
 
 
-def build_text(info: dict) -> str:
+def build_text(info: dict, data: dict | None = None) -> str:
     lines = [info["headline"], "", info["body"], ""]
+    if data:
+        imp = sum(r.impressions for r in data["pages"])
+        clk = sum(r.clicks for r in data["pages"])
+        lines += [f"過去28日: 表示{imp:,}回 / クリック{clk:,}回", verdict(imp), ""]
     lines += [f"- {a}" for a in info["actions"]]
     if info["link"]:
         lines += ["", f"{info['link'][0]}: {info['link'][1]}"]
@@ -168,9 +269,10 @@ def main(argv: list[str] | None = None) -> None:
     days = elapsed_days(config)
     info = phase(days, config.get("search_console_site", ""))
 
+    data = fetch_numbers(config)
     subject = f"[{config.get('site_title','サイト')}] {info['headline']}"
-    html = build_html(info, days, config)
-    text = build_text(info)
+    html = build_html(info, days, config, data)
+    text = build_text(info, data)
 
     if args.dry_run:
         print(f"件名: {subject}\n")
