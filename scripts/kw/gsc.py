@@ -58,9 +58,12 @@ def _access_token(credentials_json: str) -> str:
     try:
         from google.oauth2 import service_account
         from google.auth.transport.requests import Request
-    except ImportError:
+    except ImportError as exc:
+        # google-auth 単体では requests が入らず、transport の import で落ちる。
+        # 「google-auth が無い」と出すと原因を見誤るので、実際の不足を出す。
         raise RuntimeError(
-            "google-auth がインストールされていません。\n"
+            f"認証に必要なライブラリが不足しています: {exc}\n"
+            "  requirements.txt には google-auth と requests の両方が必要です。\n"
             "  pip install -r requirements.txt を実行してください。"
         ) from None
 

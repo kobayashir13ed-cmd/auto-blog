@@ -1,2 +1,5 @@
 Markdown==3.7
 google-auth==2.35.0
+# google-auth の transport が requests に依存する。
+# google-auth だけでは入らないため明示的に指定する。
+requests>=2.31,<3
