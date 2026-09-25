@@ -84,12 +84,21 @@ def query(
     dimensions: list[str],
     days: int = 28,
     row_limit: int = 1000,
+    offset_days: int = 0,
 ) -> list[Row]:
-    """Search Console に検索パフォーマンスを問い合わせる。"""
+    """Search Console に検索パフォーマンスを問い合わせる。
+
+    offset_days で期間をさかのぼれる。前週との比較に使う。
+      offset_days=0, days=7 … 直近7日間
+      offset_days=7, days=7 … その前の7日間
+    """
     token = _access_token(credentials_json)
 
-    end = common.now_jst().date() - timedelta(days=2)   # 直近2日はデータが未確定
-    start = end - timedelta(days=days)
+    # 直近2日はデータが未確定なので、常にそこを終点にする
+    # Search Console の期間は開始日・終了日の両方を含むので、7日分なら -6 する。
+    # ここを -7 にすると8日分になり、前週と1日重なって比較が狂う。
+    end = common.now_jst().date() - timedelta(days=2 + offset_days)
+    start = end - timedelta(days=days - 1)
 
     body = json.dumps({
         "startDate": start.isoformat(),

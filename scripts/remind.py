@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html import escape
 from urllib.parse import quote
 
@@ -127,6 +127,10 @@ def fetch_numbers(config: dict) -> dict | None:
         return None
     try:
         return {
+            # 週次メールなので主役は「今週」。ただし今週だけだと数字が小さすぎて
+            # 増減が偶然に見えるため、前週と過去28日も並べて文脈を持たせる。
+            "this_week": gsc.query(site, credentials, ["query"], days=7),
+            "last_week": gsc.query(site, credentials, ["query"], days=7, offset_days=7),
             "queries": gsc.query(site, credentials, ["query"], days=28),
             "pages": gsc.query(site, credentials, ["page"], days=28),
         }
@@ -134,6 +138,29 @@ def fetch_numbers(config: dict) -> dict | None:
         print(f"[注意] Search Console から数字を取得できませんでした: {exc}")
         print("       メールは数字なしで送ります。")
         return None
+
+
+def totals(rows: list) -> tuple[int, int]:
+    return sum(r.impressions for r in rows), sum(r.clicks for r in rows)
+
+
+def delta(now: int, before: int) -> str:
+    """前週との差を短い文字列にする。"""
+    if now == before:
+        return "先週と同じ"
+    diff = now - before
+    if before == 0:
+        return f"先週0 → 今週{now}"
+    pct = diff / before * 100
+    sign = "+" if diff > 0 else ""
+    return f"先週比 {sign}{diff}（{sign}{pct:.0f}%）"
+
+
+def new_queries(data: dict) -> list:
+    """今週はじめて表示された検索語。サイトが広がった方向が分かる。"""
+    before = {r.key for r in data.get("last_week", [])}
+    fresh = [r for r in data.get("this_week", []) if r.key not in before]
+    return sorted(fresh, key=lambda r: -r.impressions)[:5]
 
 
 def verdict(impressions: int) -> str:
@@ -151,51 +178,72 @@ def verdict(impressions: int) -> str:
             "既存記事の改善に力を入れる段階です。")
 
 
-def numbers_html(data: dict) -> str:
-    pages, queries = data["pages"], data["queries"]
-    impressions = sum(r.impressions for r in pages)
-    clicks = sum(r.clicks for r in pages)
+def week_range() -> str:
+    """今週ぶんの集計期間を「9/18〜9/24」の形で返す。
 
-    def rows(items: list, label: str) -> str:
+    Search Console は直近2日のデータが未確定なので、そこを終点にする。
+    メールに期間を明記しないと「いつの数字か」が分からず、増減を誤読する。
+    """
+    end = common.now_jst().date() - timedelta(days=2)
+    start = end - timedelta(days=6)
+    return f"{start.month}/{start.day}〜{end.month}/{end.day}"
+
+
+def numbers_html(data: dict) -> str:
+    imp_now, clk_now = totals(data.get("this_week", []))
+    imp_prev, clk_prev = totals(data.get("last_week", []))
+    imp_28, clk_28 = totals(data.get("pages", []))
+
+    def stat(value: int, label: str, note: str) -> str:
+        return (f'<td style="font-family:sans-serif;padding:0 14px 0 0;">'
+                f'<div style="font-size:28px;font-weight:bold;color:#1a1c1f;'
+                f'line-height:1.2;">{value:,}</div>'
+                f'<div style="font-size:12px;color:#57606a;">{escape(label)}</div>'
+                f'<div style="font-size:12px;color:#57606a;margin-top:2px;">'
+                f'{escape(note)}</div></td>')
+
+    def rows(items: list, label: str, empty: str) -> str:
         if not items:
-            return (f'<p style="font-size:13px;color:#57606a;margin:0 0 14px;">'
-                    f'{label}：まだありません</p>')
-        top = sorted(items, key=lambda r: -r.impressions)[:5]
+            return (f'<p style="font-size:13px;color:#57606a;margin:14px 0 0;">'
+                    f'<strong>{escape(label)}</strong><br>{escape(empty)}</p>')
         cells = "".join(
             f'<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e5e9;'
             f'font-size:13px;word-break:break-all;">{escape(str(r.key))}</td>'
             f'<td style="padding:6px 8px;border-bottom:1px solid #e2e5e9;'
-            f'font-size:13px;text-align:right;white-space:nowrap;">'
+            f'font-size:13px;text-align:right;white-space:nowrap;color:#57606a;">'
             f'{r.impressions:,}回 / {r.position:.0f}位</td></tr>'
-            for r in top
+            for r in items
         )
-        return (f'<p style="font-size:13px;color:#57606a;margin:14px 0 6px;">'
-                f'<strong>{label}</strong></p>'
+        return (f'<p style="font-size:13px;color:#57606a;margin:16px 0 6px;">'
+                f'<strong>{escape(label)}</strong></p>'
                 f'<table cellpadding="0" cellspacing="0" width="100%" '
-                f'style="border-collapse:collapse;margin:0 0 6px;">{cells}</table>')
+                f'style="border-collapse:collapse;">{cells}</table>')
+
+    fresh = new_queries(data)
+    top_q = sorted(data.get("queries", []), key=lambda r: -r.impressions)[:5]
+    top_p = sorted(data.get("pages", []), key=lambda r: -r.impressions)[:5]
 
     return f"""
 <div style="border:1px solid #e2e5e9;border-radius:8px;padding:16px;margin:0 0 20px;">
-  <div style="font-family:sans-serif;font-size:13px;color:#57606a;margin:0 0 10px;">
-    過去28日間の検索パフォーマンス
+  <div style="font-family:sans-serif;font-size:13px;color:#57606a;margin:0 0 12px;">
+    今週のサマリー（{escape(week_range())}）
   </div>
-  <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 12px;">
+  <table cellpadding="0" cellspacing="0" style="margin:0 0 12px;">
     <tr>
-      <td style="font-family:sans-serif;">
-        <div style="font-size:26px;font-weight:bold;color:#1a1c1f;">{impressions:,}</div>
-        <div style="font-size:12px;color:#57606a;">表示回数</div>
-      </td>
-      <td style="font-family:sans-serif;">
-        <div style="font-size:26px;font-weight:bold;color:#1a1c1f;">{clicks:,}</div>
-        <div style="font-size:12px;color:#57606a;">クリック</div>
-      </td>
+      {stat(imp_now, "表示回数", delta(imp_now, imp_prev))}
+      {stat(clk_now, "クリック", delta(clk_now, clk_prev))}
     </tr>
   </table>
+  <div style="font-family:sans-serif;font-size:12px;color:#57606a;margin:0 0 12px;">
+    過去28日の合計：表示 {imp_28:,}回 ／ クリック {clk_28:,}回
+  </div>
   <div style="font-family:sans-serif;font-size:13px;line-height:1.8;color:#24292f;
-    background:#f6f8fa;padding:10px 12px;border-radius:6px;">{escape(verdict(impressions))}</div>
+    background:#f6f8fa;padding:10px 12px;border-radius:6px;">{escape(verdict(imp_28))}</div>
   <div style="font-family:sans-serif;">
-    {rows(queries, "よく表示されている検索語（表示回数 / 平均順位）")}
-    {rows(pages, "よく表示されているページ")}
+    {rows(fresh, "今週はじめて表示された検索語",
+          "今週は新しい検索語での表示はありませんでした。")}
+    {rows(top_q, "よく表示されている検索語（過去28日）", "まだありません")}
+    {rows(top_p, "よく表示されているページ（過去28日）", "まだありません")}
   </div>
 </div>"""
 
@@ -251,9 +299,15 @@ def build_html(info: dict, days: int, config: dict,
 def build_text(info: dict, data: dict | None = None) -> str:
     lines = [info["headline"], "", info["body"], ""]
     if data:
-        imp = sum(r.impressions for r in data["pages"])
-        clk = sum(r.clicks for r in data["pages"])
-        lines += [f"過去28日: 表示{imp:,}回 / クリック{clk:,}回", verdict(imp), ""]
+        imp_now, clk_now = totals(data.get("this_week", []))
+        imp_28, _ = totals(data.get("pages", []))
+        imp_prev, _ = totals(data.get("last_week", []))
+        lines += [
+            f"今週（{week_range()}）: 表示{imp_now:,}回 / クリック{clk_now:,}回"
+            f"　{delta(imp_now, imp_prev)}",
+            f"過去28日の合計: 表示{imp_28:,}回",
+            verdict(imp_28), "",
+        ]
     lines += [f"- {a}" for a in info["actions"]]
     if info["link"]:
         lines += ["", f"{info['link'][0]}: {info['link'][1]}"]
