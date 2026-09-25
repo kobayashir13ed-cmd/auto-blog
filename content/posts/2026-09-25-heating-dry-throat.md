@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "暖房で喉が乾く寝室に合う加湿器を、加湿方式と適用畳数の見方から解説。価格帯別の判断基準もまとめました。",
   "created_at": "2026-09-25",
-  "published_at": ""
+  "published_at": "2026-09-25"
 }
 -->
 
