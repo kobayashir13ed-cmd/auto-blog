@@ -541,7 +541,8 @@
       "max_price": 30000,
       "hits": 4,
       "peak_month": 12,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-09-28"
     },
     {
       "keyword": "電気毛布 洗える 電気代 安い",
