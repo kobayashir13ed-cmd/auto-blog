@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "狭い部屋で使う一人暮らし向けこたつの選び方を解説。サイズとヒーター出力の関係、電気代の目安になる仕様の見方を整理しました。",
   "created_at": "2026-09-28",
-  "published_at": ""
+  "published_at": "2026-09-28"
 }
 -->
 
