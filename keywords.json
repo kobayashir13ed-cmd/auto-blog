@@ -554,7 +554,8 @@
       "max_price": 20000,
       "hits": 4,
       "peak_month": 11,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-09-29"
     },
     {
       "keyword": "布団 干せない マンション 湿気",
