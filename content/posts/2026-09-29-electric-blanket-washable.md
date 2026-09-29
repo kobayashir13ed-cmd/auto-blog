@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "洗える電気毛布を電気代も抑えて選ぶための消費電力・洗濯可否のチェック方法を、商品ページのどこを見ればいいかまで具体的に解説します。",
   "created_at": "2026-09-29",
-  "published_at": ""
+  "published_at": "2026-09-29"
 }
 -->
 
