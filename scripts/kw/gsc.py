@@ -156,6 +156,86 @@ def query(
 
 
 # --------------------------------------------------------------------------
+# URL検査（インデックス状況）
+# --------------------------------------------------------------------------
+
+INSPECT_ENDPOINT = "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect"
+
+# Search Console 画面の表記に合わせる。API は英語の列挙値で返してくる。
+VERDICT_LABELS = {
+    "PASS": "登録済み",       # 画面の「URL は Google に登録されています」
+    "NEUTRAL": "未登録",      # 画面の「除外」。検出のみ・クロール済み未登録など
+    "FAIL": "エラー",         # 画面の「エラー」。noindex やサーバーエラーなど
+}
+
+
+@dataclass
+class IndexStatus:
+    url: str
+    verdict: str = ""        # PASS / NEUTRAL / FAIL。確認できなければ空
+    coverage: str = ""       # 「検出 - インデックス未登録」などの詳細
+    last_crawl: str = ""     # 最終クロール日時（RFC3339）。未クロールなら空
+    error: str = ""
+
+    @property
+    def label(self) -> str:
+        if self.error:
+            return "確認できず"
+        return VERDICT_LABELS.get(self.verdict, "不明")
+
+
+def inspect_urls(site_url: str, credentials_json: str, urls: list[str],
+                 language: str = "ja") -> list[IndexStatus]:
+    """各URLのインデックス状況を、Search Console の「URL検査」と同じ仕組みで取る。
+
+    「ページのインデックス登録」レポートは数日遅れでまとめて更新されるため、
+    新しい記事は実際には登録済みでも一覧に出てこない。
+    URL検査はその場で索引に問い合わせるので、こちらが正しい現状を返す。
+
+    上限は1サイトあたり1日2,000件・1分600件。週1回・記事数十本なら十分収まる。
+    """
+    token = _access_token(credentials_json)
+    results: list[IndexStatus] = []
+
+    for url in urls:
+        body = json.dumps({
+            "inspectionUrl": url,
+            "siteUrl": site_url,
+            "languageCode": language,
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            INSPECT_ENDPOINT, data=body, method="POST",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 403:
+                # 権限不足は全URL共通。1件ずつ失敗させても無駄なので打ち切る
+                raise RuntimeError(
+                    "URL検査を実行する権限がありません（403）。\n"
+                    "  Search Console の「設定 > ユーザーと権限」で、\n"
+                    "  サービスアカウントの権限を「フル」に変更してください。"
+                ) from exc
+            results.append(IndexStatus(url, error=f"HTTP {exc.code}"))
+            continue
+        except urllib.error.URLError as exc:
+            results.append(IndexStatus(url, error=str(exc.reason)))
+            continue
+
+        index = payload.get("inspectionResult", {}).get("indexStatusResult", {})
+        results.append(IndexStatus(
+            url=url,
+            verdict=index.get("verdict", ""),
+            coverage=index.get("coverageState", ""),
+            last_crawl=index.get("lastCrawlTime", ""),
+        ))
+    return results
+
+
+# --------------------------------------------------------------------------
 # 分析
 # --------------------------------------------------------------------------
 

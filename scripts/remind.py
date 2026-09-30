@@ -111,13 +111,28 @@ def phase(days: int, site: str) -> dict:
 # Search Console の数字
 # --------------------------------------------------------------------------
 
+def article_urls(config: dict) -> list[tuple]:
+    """公開済みの全記事と、そのURLを新しい順に返す。
+
+    URLの組み立てはサイト生成（build_site）と同じ規則にする。
+    ここがずれると、Search Console 側のURLと突き合わせられなくなる。
+    """
+    from . import build_site          # 重い依存を読み込むので、必要なときだけ
+    base = config.get("base_url", "").rstrip("/")
+    prefix = config.get("path_prefix", "/")
+    return [(post, f"{base}{prefix}{post.slug}/") for post in build_site.load_posts()]
+
+
 def fetch_numbers(config: dict) -> dict | None:
-    """過去28日の検索パフォーマンスを取る。取れなければ None を返す。
+    """検索パフォーマンスと、全記事のインデックス状況を取る。
 
     ここで例外を握りつぶしているのは意図的。リマインダーの本体は
     「今週やること」を届けることであって、数字はおまけ。
     認証が未設定でもAPIが落ちていても、メールは必ず届くべきなので、
     数字の取得失敗でメール全体を失敗させない。
+
+    取得は二段に分けている。インデックス状況（URL検査）だけ失敗した場合でも、
+    表示回数などの数字は届けたいので、片方の失敗で両方を捨てない。
     """
     credentials = common.env("GSC_CREDENTIALS", required=False)
     if not credentials:
@@ -125,8 +140,9 @@ def fetch_numbers(config: dict) -> dict | None:
     site = config.get("search_console_site", "")
     if not site:
         return None
+
     try:
-        return {
+        data = {
             # 週次メールなので主役は「今週」。ただし今週だけだと数字が小さすぎて
             # 増減が偶然に見えるため、前週と過去28日も並べて文脈を持たせる。
             "this_week": gsc.query(site, credentials, ["query"], days=7),
@@ -138,6 +154,18 @@ def fetch_numbers(config: dict) -> dict | None:
         print(f"[注意] Search Console から数字を取得できませんでした: {exc}")
         print("       メールは数字なしで送ります。")
         return None
+
+    data["articles"] = article_urls(config)
+    data["inspections"] = []
+    try:
+        data["inspections"] = gsc.inspect_urls(
+            site, credentials, [url for _, url in data["articles"]])
+        print(f"インデックス状況を{len(data['inspections'])}記事ぶん確認しました。")
+    except Exception as exc:                        # noqa: BLE001 — 上のコメント参照
+        print(f"[注意] インデックス状況を確認できませんでした: {exc}")
+        print("       記事一覧は表示回数だけで送ります。")
+        data["inspection_error"] = str(exc).split("\n")[0]
+    return data
 
 
 def totals(rows: list) -> tuple[int, int]:
@@ -161,6 +189,114 @@ def new_queries(data: dict) -> list:
     before = {r.key for r in data.get("last_week", [])}
     fresh = [r for r in data.get("this_week", []) if r.key not in before]
     return sorted(fresh, key=lambda r: -r.impressions)[:5]
+
+
+INDEX_COLORS = {
+    "登録済み": "#1a7f37",
+    "未登録": "#9a6700",
+    "エラー": "#cf222e",
+}
+INDEX_MARKS = {"登録済み": "✅", "未登録": "⏳", "エラー": "❌"}
+
+
+def short_date(iso: str) -> str:
+    """"2026-09-22" を "9/22" にする。"""
+    try:
+        _, m, d = iso.split("-")
+        return f"{int(m)}/{int(d)}"
+    except ValueError:
+        return iso
+
+
+def article_rows(data: dict) -> list[dict]:
+    """記事ごとに、インデックス状況と表示回数を1行にまとめる。"""
+    perf = {r.key: r for r in data.get("pages", [])}
+    status = {s.url: s for s in data.get("inspections", [])}
+    rows = []
+    for post, url in data.get("articles", []):
+        st = status.get(url)
+        pf = perf.get(url)
+        rows.append({
+            "title": post.title,
+            "url": url,
+            "date": short_date(post.published_at or post.created_at),
+            "label": st.label if st else "確認できず",
+            # 未登録の理由（「検出 - インデックス未登録」など）は、登録済みのときは不要
+            "detail": st.coverage if st and st.verdict != "PASS" else "",
+            "impressions": pf.impressions if pf else 0,
+            "clicks": pf.clicks if pf else 0,
+            "position": pf.position if pf else None,
+        })
+    return rows
+
+
+def article_summary(rows: list[dict]) -> str:
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r["label"]] = counts.get(r["label"], 0) + 1
+    parts = [f"{label} {counts[label]}" for label in ("登録済み", "未登録", "エラー", "確認できず")
+             if counts.get(label)]
+    return f"全{len(rows)}記事：" + " ／ ".join(parts)
+
+
+def article_table_html(data: dict) -> str:
+    rows = article_rows(data)
+    if not rows:
+        return ""
+    td = "padding:7px 6px;border-bottom:1px solid #e2e5e9;font-size:12px;vertical-align:top;"
+    num = td + "text-align:right;white-space:nowrap;"
+    body = ""
+    for r in rows:
+        title = r["title"] if len(r["title"]) <= 26 else r["title"][:25] + "…"
+        color = INDEX_COLORS.get(r["label"], "#57606a")
+        detail = (f'<div style="color:#57606a;font-size:11px;margin-top:2px;'
+                  f'font-weight:normal;white-space:normal;">'
+                  f'{escape(r["detail"])}</div>') if r["detail"] else ""
+        pos = f'{r["position"]:.0f}位' if r["position"] else "–"
+        body += (
+            f'<tr><td style="{td}"><a href="{escape(r["url"])}" '
+            f'style="color:#0969da;text-decoration:none;">{escape(title)}</a>'
+            f'<div style="color:#57606a;font-size:11px;margin-top:2px;">'
+            f'公開 {escape(r["date"])}</div></td>'
+            f'<td style="{td}white-space:nowrap;color:{color};font-weight:bold;">'
+            f'{escape(r["label"])}{detail}</td>'
+            f'<td style="{num}">{r["impressions"]:,}</td>'
+            f'<td style="{num}">{r["clicks"]:,}</td>'
+            f'<td style="{num}color:#57606a;">{pos}</td></tr>'
+        )
+    head = ("padding:6px;font-size:11px;color:#57606a;border-bottom:1px solid #d0d7de;"
+            "text-align:left;white-space:nowrap;")
+    note = ""
+    if data.get("inspection_error"):
+        note = (f'<p style="font-size:11px;color:#9a6700;margin:6px 0 0;">'
+                f'インデックス状況は確認できませんでした：{escape(data["inspection_error"])}</p>')
+    return f"""
+  <p style="font-size:13px;color:#24292f;margin:18px 0 6px;">
+    <strong>全記事の状況</strong>　<span style="color:#57606a;">{escape(article_summary(rows))}</span>
+  </p>
+  <p style="font-size:11px;color:#57606a;margin:0 0 6px;">
+    インデックスは今日時点、表示・クリック・順位は過去28日間
+  </p>
+  <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+    <tr><td style="{head}">記事</td><td style="{head}">インデックス</td>
+        <td style="{head}text-align:right;">表示</td>
+        <td style="{head}text-align:right;">クリック</td>
+        <td style="{head}text-align:right;">順位</td></tr>
+    {body}
+  </table>{note}"""
+
+
+def article_table_text(data: dict) -> list[str]:
+    rows = article_rows(data)
+    if not rows:
+        return []
+    lines = [article_summary(rows) + "（インデックスは今日時点、数字は過去28日）"]
+    for r in rows:
+        mark = INDEX_MARKS.get(r["label"], "？")
+        pos = f'{r["position"]:.0f}位' if r["position"] else "–"
+        lines.append(f'{mark} {r["title"]}（{r["date"]}） '
+                     f'表示{r["impressions"]} クリック{r["clicks"]} {pos}')
+    return lines + [""]
 
 
 def verdict(impressions: int) -> str:
@@ -221,7 +357,6 @@ def numbers_html(data: dict) -> str:
 
     fresh = new_queries(data)
     top_q = sorted(data.get("queries", []), key=lambda r: -r.impressions)[:5]
-    top_p = sorted(data.get("pages", []), key=lambda r: -r.impressions)[:5]
 
     return f"""
 <div style="border:1px solid #e2e5e9;border-radius:8px;padding:16px;margin:0 0 20px;">
@@ -240,10 +375,10 @@ def numbers_html(data: dict) -> str:
   <div style="font-family:sans-serif;font-size:13px;line-height:1.8;color:#24292f;
     background:#f6f8fa;padding:10px 12px;border-radius:6px;">{escape(verdict(imp_28))}</div>
   <div style="font-family:sans-serif;">
+    {article_table_html(data)}
     {rows(fresh, "今週はじめて表示された検索語",
           "今週は新しい検索語での表示はありませんでした。")}
     {rows(top_q, "よく表示されている検索語（過去28日）", "まだありません")}
-    {rows(top_p, "よく表示されているページ（過去28日）", "まだありません")}
   </div>
 </div>"""
 
@@ -308,6 +443,7 @@ def build_text(info: dict, data: dict | None = None) -> str:
             f"過去28日の合計: 表示{imp_28:,}回",
             verdict(imp_28), "",
         ]
+        lines += article_table_text(data)
     lines += [f"- {a}" for a in info["actions"]]
     if info["link"]:
         lines += ["", f"{info['link'][0]}: {info['link'][1]}"]
