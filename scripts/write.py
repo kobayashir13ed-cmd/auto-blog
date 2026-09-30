@@ -156,7 +156,7 @@ def mock_complete(products: list[dict]):
         filler = "比較の軸をそろえて読むと、自分に合う商品が見えてきます。" * 160
         return "\n\n".join(sections[:3] + [filler] + sections[3:])
 
-    def complete(prompt: str, system: str, max_tokens: int) -> str:
+    def complete(prompt: str, system: str, max_tokens: int, thinking=None) -> str:
         if "「リサーチ担当」" in prompt:
             return "①【読者の状況】（推測）置き場所に困っている\n②【比較の軸】…"
         if "「企画担当」" in prompt:
@@ -272,10 +272,11 @@ def main(argv: list[str] | None = None) -> None:
         api_key = common.env("ANTHROPIC_API_KEY")
         model = config.get("agent_model") or config.get("model", "claude-sonnet-5")
 
-        def complete(prompt: str, system: str, max_tokens: int) -> str:
+        def complete(prompt: str, system: str, max_tokens: int, thinking=None) -> str:
             # 長い本文は生成に数分かかるので、待ち時間を長めに取る
             return claude_api.complete(prompt=prompt, api_key=api_key, model=model,
-                                       max_tokens=max_tokens, system=system, timeout=600)
+                                       max_tokens=max_tokens, system=system, timeout=600,
+                                       thinking=thinking)
 
     result = agents.write_article(entry, products, market, config, complete)
 

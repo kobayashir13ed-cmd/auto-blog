@@ -24,8 +24,20 @@ from dataclasses import dataclass, field
 from statistics import median
 from typing import Callable
 
-# (prompt, system, max_tokens) -> 応答テキスト
-Complete = Callable[[str, str, int], str]
+# (prompt, system, max_tokens, thinking) -> 応答テキスト
+# thinking: None ならモデルの既定（考える処理あり）、False なら考える処理を止める
+Complete = Callable[[str, str, int, "bool | None"], str]
+
+# 担当ごとの出力上限と、考える処理を使うか。
+# 新しいモデルは考えた分も上限に数えるため、判断が中心の担当には余裕を持たせる。
+# 長い本文を書く担当は、判断は企画書で済んでいるので考える処理を止め、時間と費用を抑える。
+BUDGET = {
+    "research": (16000, None),
+    "plan": (16000, None),
+    "writer": (24000, False),
+    "editor": (28000, False),
+    "check": (16000, None),
+}
 
 
 # --------------------------------------------------------------------------
@@ -504,25 +516,25 @@ def write_article(entry: dict, products: list[dict], market: dict,
     log("  [1/5] リサーチ担当が商品データを整理しています")
     research = complete(RESEARCH_PROMPT.format(
         keyword=keyword, intent=intent, market=describe_market(market),
-        sampled=market.get("sampled", "数十"), products=facts), system, 5000)
+        sampled=market.get("sampled", "数十"), products=facts), system, *BUDGET["research"])
     reports["research"] = research
 
     log("  [2/5] 企画担当が構成を決めています")
     plan = complete(PLAN_PROMPT.format(
         keyword=keyword, count=count, product_names=product_names(products),
-        research=research), system, 5000)
+        research=research), system, *BUDGET["plan"])
     reports["plan"] = plan
     top = parse_top(plan, count)
 
     log("  [3/5] ライターが本文を書いています")
     draft = complete(WRITER_PROMPT.format(
-        keyword=keyword, plan=plan, research=research, products=facts), system, 14000)
+        keyword=keyword, plan=plan, research=research, products=facts), system, *BUDGET["writer"])
     reports["draft"] = draft
 
     def edit(text: str, extra: str = "") -> tuple[str, str, str, str]:
         out = complete(EDITOR_PROMPT.format(
             keyword=keyword, products=facts, plan=plan, draft=text,
-            extra=extra), system, 16000)
+            extra=extra), system, *BUDGET["editor"])
         report, _, article = out.partition("===ARTICLE===")
         if not article.strip():                  # 区切りを書き忘れた場合
             report, article = "", out
@@ -537,8 +549,15 @@ def write_article(entry: dict, products: list[dict], market: dict,
     problems: list[str] = []
     for attempt in (1, 2):
         log(f"  [5/5] 事実確認担当が確認しています（{attempt}回目）")
-        checked = parse_check(complete(CHECK_PROMPT.format(
-            products=facts, article=f"TITLE: {title}\n\n{body}"), system, 4000))
+        try:
+            checked = parse_check(complete(CHECK_PROMPT.format(
+                products=facts, article=f"TITLE: {title}\n\n{body}"), system, *BUDGET["check"]))
+        except RuntimeError as exc:
+            # 確認できなかった記事は公開しない。ただし書き上げた原稿は捨てず、承認待ちに回す
+            log(f"        事実確認を実行できませんでした: {exc}")
+            problems = lint(body, count, top) + [f"事実確認を実行できませんでした（{exc}）"]
+            reports[f"check_{attempt}"] = {"error": str(exc), "lint": lint(body, count, top)}
+            break
         problems = lint(body, count, top) + [
             f"「{i.get('quote', '')[:60]}」… {i.get('problem', '')}（→ {i.get('fix', '')}）"
             for i in checked["issues"]]
@@ -548,7 +567,12 @@ def write_article(entry: dict, products: list[dict], market: dict,
         log(f"        問題が{len(problems)}件あったので編集長に差し戻します")
         extra = ("\n■ 事実確認で見つかった問題（すべて直すこと）\n"
                  + "\n".join(f"- {p}" for p in problems) + "\n")
-        report2, t2, d2, b2 = edit(f"TITLE: {title}\nDESC: {desc}\n{body}", extra)
+        try:
+            report2, t2, d2, b2 = edit(f"TITLE: {title}\nDESC: {desc}\n{body}", extra)
+        except RuntimeError as exc:
+            log(f"        差し戻しの修正に失敗しました: {exc}")
+            problems.append(f"差し戻しの修正に失敗しました（{exc}）")
+            break
         reports["edit_2"] = report2
         if b2:
             title, desc, body = t2 or title, d2 or desc, b2
