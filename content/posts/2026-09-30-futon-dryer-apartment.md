@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "ベランダに布団を干せないマンション住まい向けに、布団乾燥機のマット有無の違いと選び方の基準を解説します。",
   "created_at": "2026-09-30",
-  "published_at": ""
+  "published_at": "2026-09-30"
 }
 -->
 
