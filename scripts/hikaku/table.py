@@ -26,21 +26,12 @@ PROVIDER_CLASS = {"rakuten": "hkg-btn--rakuten", "amazon": "hkg-btn--amazon"}
 
 CSS = """
 .hkg-wrap{--hkg-fg:#1a1c1f;--hkg-muted:#5d646d;--hkg-bg:#fff;--hkg-card:#fff;
-  --hkg-border:#e2e5e9;--hkg-accent:#c8102e;--hkg-accent-soft:#fdeef0;
+  --hkg-border:#e2e5e9;--hkg-accent:#0f5e5b;--hkg-accent-soft:#eaf4f3;
   --hkg-thumb-bg:#f6f7f9;
   --hkg-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.05);
   color:var(--hkg-fg);background:var(--hkg-bg);
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
   line-height:1.7;margin:2rem 0;-webkit-font-smoothing:antialiased}
-@media (prefers-color-scheme:dark){.hkg-wrap:not([data-theme="light"]){
-  --hkg-fg:#e8eaed;--hkg-muted:#9aa3ad;--hkg-bg:#16181c;--hkg-card:#1e2126;
-  --hkg-border:#2f343b;--hkg-accent:#ff6b81;--hkg-accent-soft:#2a1d21;
-  --hkg-thumb-bg:#24282e;
-  --hkg-shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3)}}
-.hkg-wrap[data-theme="dark"]{--hkg-fg:#e8eaed;--hkg-muted:#9aa3ad;--hkg-bg:#16181c;
-  --hkg-card:#1e2126;--hkg-border:#2f343b;--hkg-accent:#ff6b81;--hkg-accent-soft:#2a1d21;
-  --hkg-thumb-bg:#24282e;
-  --hkg-shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3)}
 .hkg-wrap *{box-sizing:border-box}
 .hkg-title{font-size:1.4rem;font-weight:700;margin:0 0 .25rem;letter-spacing:.01em}
 .hkg-disclosure{font-size:.78rem;color:var(--hkg-muted);margin:0 0 1.25rem}
@@ -350,7 +341,6 @@ def build_page(products: list[Product], title: str = "おすすめ商品 比較"
 <title>{_escape(title)}</title>
 <style>
 body{{margin:0;padding:1.5rem;background:#fff}}
-@media (prefers-color-scheme:dark){{body{{background:#16181c}}}}
 .hkg-page{{max-width:820px;margin:0 auto}}
 {CSS}
 </style>

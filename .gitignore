@@ -8,3 +8,6 @@ node_modules/
 # 万一ローカルに置いた場合の保険として除外しておく。
 .env
 secrets.json
+
+# 記事を書く処理の結果（次のステップでお知らせメールに使う一時ファイル）
+write-result.json

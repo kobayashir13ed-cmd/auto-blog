@@ -1,0 +1,83 @@
+name: 選ばれた商品で記事を書いて公開する
+
+# 商品選択ページ（mekikilab.com/pick/）でボタンが押されると、
+# Cloudflare Worker が repository_dispatch でこのワークフローを起動する。
+# 5人の担当（リサーチ・企画・ライター・編集長・事実確認）が記事を書き、
+# 自動チェックをすべて通れば公開、1つでも残れば承認メールを送って保留する。
+
+on:
+  repository_dispatch:
+    types: [write-article]
+
+# 同時に2本走ると、記事一覧やキーワードの書き換えがぶつかる。1本ずつ順番に処理する
+concurrency:
+  group: write-article
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      # 商品データはシェルに埋め込まず、環境変数で渡す（中身がコマンドとして解釈されないように）
+      - name: 5人の担当が記事を書く
+        id: write
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: python -m scripts.write
+
+      - name: 変更をコミット
+        if: steps.write.outputs.result == 'published' || steps.write.outputs.result == 'needs_review'
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add content/ site/ keywords.json
+          if git diff --staged --quiet; then
+            echo "コミットする変更はありません。"
+            exit 0
+          fi
+          git commit -m "write: ${{ steps.write.outputs.draft_id }} (${{ steps.write.outputs.result }})"
+          # 他のワークフローや手元からのプッシュとぶつかることがある。
+          # その場合はリモートを取り込んでから押し直す。
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
+            git pull --rebase
+          done
+          echo "3回試しましたがプッシュできませんでした。" >&2
+          exit 1
+
+      - uses: actions/configure-pages@v5
+        if: steps.write.outputs.result == 'published'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.write.outputs.result == 'published'
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        if: steps.write.outputs.result == 'published'
+
+      - name: お知らせメールを送る
+        if: steps.write.outputs.result == 'published' || steps.write.outputs.result == 'needs_review'
+        env:
+          APPROVAL_SECRET: ${{ secrets.APPROVAL_SECRET }}
+          WORKER_BASE_URL: ${{ secrets.WORKER_BASE_URL }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+        run: python -m scripts.write --send-notice write-result.json

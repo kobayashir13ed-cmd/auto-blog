@@ -37,7 +37,7 @@ def already_done(draft_id: str) -> str:
 
 def move_files(draft_id: str, src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
-    for suffix in (".md", ".table.html", ".stats.html", ".email.html"):
+    for suffix in (".md",) + common.SIDE_SUFFIXES:
         source = src / f"{draft_id}{suffix}"
         if source.exists():
             shutil.move(str(source), str(dst / f"{draft_id}{suffix}"))
@@ -55,10 +55,17 @@ def approve(draft_id: str, config: dict) -> None:
             f"  このドラフトは旧構成で生成されたものです。却下して作り直してください。"
         )
 
-    draft.published_at = common.today_str()
+    # 作り直しの記事なら、元の公開日を引き継ぐ（URLも公開日も変えない）
+    previous = common.POSTS / f"{draft_id}.md"
+    if previous.exists():
+        draft.published_at = common.read_draft(draft_id, common.POSTS).published_at
+        for suffix in (".table.html", ".email.html"):
+            (common.POSTS / f"{draft_id}{suffix}").unlink(missing_ok=True)
+    else:
+        draft.published_at = common.today_str()
     # 本文はそのまま、メタ情報だけ更新して posts/ へ書き出す
     common.write_draft(draft, common.POSTS)
-    for suffix in (".md", ".table.html", ".stats.html", ".email.html"):
+    for suffix in (".md",) + common.SIDE_SUFFIXES:
         stale = common.DRAFTS / f"{draft_id}{suffix}"
         if stale.exists():
             stale.unlink()

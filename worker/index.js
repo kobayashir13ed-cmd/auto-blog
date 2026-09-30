@@ -15,6 +15,14 @@
  *   APPROVAL_SECRET … scripts/tokens.py と同じ文字列
  *   GITHUB_TOKEN    … repo スコープの Personal Access Token
  *   GITHUB_REPO     … "ユーザー名/リポジトリ名"
+ * 任意:
+ *   SITE_ORIGIN     … 商品選択ページのあるサイト。既定は https://mekikilab.com
+ *
+ * /pick（商品選択ページからの依頼）:
+ *   サイト上の選択ページが、選んだ商品をJSONでPOSTしてくる。
+ *   署名トークンを確かめ、中身の大きさと形を検査してから、
+ *   GitHub Actions の「記事を書く」ワークフローを起動する。
+ *   別サイトからの送信になるため、CORS の許可はサイトの持ち主のドメインだけに出す。
  */
 
 const ACTIONS = {
@@ -26,6 +34,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const action = url.pathname.replace(/^\//, "");
+
+    if (action === "pick") {
+      return handlePick(request, env);
+    }
 
     if (!ACTIONS[action]) {
       return page("ページが見つかりません", "URLを確認してください。", 404);
@@ -124,6 +136,10 @@ function timingSafeEqual(a, b) {
  * ---------------------------------------------------------------------- */
 
 async function dispatchToGitHub(env, draftId, action) {
+  return sendDispatch(env, "publish-draft", { draft_id: draftId, action });
+}
+
+async function sendDispatch(env, eventType, clientPayload) {
   const response = await fetch(
     `https://api.github.com/repos/${env.GITHUB_REPO}/dispatches`,
     {
@@ -135,10 +151,7 @@ async function dispatchToGitHub(env, draftId, action) {
         // GitHub API は User-Agent を必須にしている
         "User-Agent": "auto-blog-approver",
       },
-      body: JSON.stringify({
-        event_type: "publish-draft",
-        client_payload: { draft_id: draftId, action },
-      }),
+      body: JSON.stringify({ event_type: eventType, client_payload: clientPayload }),
     }
   );
 
@@ -148,6 +161,89 @@ async function dispatchToGitHub(env, draftId, action) {
       `GitHubへの通知に失敗しました (HTTP ${response.status}): ${detail.slice(0, 200)}`
     );
   }
+}
+
+/* -------------------------------------------------------------------------
+ * 商品選択ページからの依頼（/pick）
+ * ---------------------------------------------------------------------- */
+
+const MAX_BODY = 40000;        // これより大きい依頼は受け付けない（GitHub の上限より十分小さく）
+const MAX_PRODUCTS = 5;
+const RAKUTEN_ITEM = /^https:\/\/(item\.rakuten\.co\.jp|hb\.afl\.rakuten\.co\.jp)\//;
+
+function cors(env, request) {
+  const allowed = env.SITE_ORIGIN || "https://mekikilab.com";
+  const origin = request.headers.get("Origin") || "";
+  return {
+    "Access-Control-Allow-Origin": origin === allowed ? origin : allowed,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function json(env, request, status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", ...cors(env, request) },
+  });
+}
+
+async function handlePick(request, env) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors(env, request) });
+  }
+  if (request.method !== "POST") {
+    return json(env, request, 405, { ok: false, error: "POST で送ってください" });
+  }
+
+  const allowed = env.SITE_ORIGIN || "https://mekikilab.com";
+  if ((request.headers.get("Origin") || "") !== allowed) {
+    return json(env, request, 403, { ok: false, error: "このサイトからの依頼ではありません" });
+  }
+
+  const raw = await request.text();
+  if (raw.length > MAX_BODY) {
+    return json(env, request, 413, { ok: false, error: "送信データが大きすぎます" });
+  }
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch (e) {
+    return json(env, request, 400, { ok: false, error: "送信データを読めません" });
+  }
+
+  const slug = String(body.slug || "");
+  const token = String(body.token || "");
+  if (!/^[a-z0-9-]{3,80}$/.test(slug) || !token) {
+    return json(env, request, 400, { ok: false, error: "記事の指定が正しくありません" });
+  }
+  const check = await verifyToken(env.APPROVAL_SECRET, slug, "pick", token);
+  if (!check.ok) {
+    return json(env, request, 403, { ok: false, error: check.reason });
+  }
+
+  const products = Array.isArray(body.products) ? body.products.slice(0, MAX_PRODUCTS) : [];
+  if (products.length < 2) {
+    return json(env, request, 400, { ok: false, error: "商品を2つ以上選んでください" });
+  }
+  for (const p of products) {
+    if (!p || !RAKUTEN_ITEM.test(String(p.affiliateUrl || p.itemUrl || ""))) {
+      return json(env, request, 400, { ok: false, error: "楽天の商品ではないものが含まれています" });
+    }
+  }
+
+  try {
+    await sendDispatch(env, "write-article", {
+      slug,
+      products,
+      market: body.market && typeof body.market === "object" ? body.market : {},
+    });
+  } catch (err) {
+    return json(env, request, 502, { ok: false, error: String(err.message || err) });
+  }
+  return json(env, request, 200, { ok: true });
 }
 
 /* -------------------------------------------------------------------------

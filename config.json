@@ -50,6 +50,13 @@
   "products_per_post": 3,
   "_auto_publish_note": "true にすると承認メールを送らず、生成した記事をそのまま公開します。false だと承認メールが届き、ボタンを押して初めて公開されます。自動公開は手間ゼロですが、生成内容を誰も確認しないため、事実誤りや不自然な記事がそのまま出ます。まず false で数本見てから切り替えることを推奨します。",
   "auto_publish": false,
+  "_worker_note": "承認ボタンと商品選択ページの受け口（Cloudflare Worker）のURL。秘密の値ではなく、メールや選択ページに載るURLです。",
+  "worker_base_url": "https://auto-blog-approver.rk-monosashi.workers.dev",
+  "_agent_note": "記事を書く5つの担当（リサーチ・企画・ライター・編集長・事実確認）が使うモデル。空なら model と同じ。",
+  "agent_model": "",
+  "_pick_note": "商品選択ページで一度に選べる商品の数。2〜5の範囲で。",
+  "pick_min": 2,
+  "pick_max": 5,
   "branch": "main",
   "_smtp_note": "承認メールの送信元。Gmailの場合は通常のパスワードではなくアプリパスワードが必要です。",
   "smtp": {

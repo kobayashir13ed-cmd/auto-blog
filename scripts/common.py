@@ -20,6 +20,10 @@ POSTS = CONTENT / "posts"
 SITE = ROOT / "site"
 
 CONFIG_PATH = ROOT / "config.json"
+
+# 記事本体（.md）に付随して保存するファイル。公開・却下・読み込みのすべてで同じ一覧を使う。
+# ここに足し忘れると、公開時にファイルが drafts/ に取り残される。
+SIDE_SUFFIXES = (".table.html", ".stats.html", ".email.html", ".products.json")
 KEYWORDS_PATH = ROOT / "keywords.json"
 
 # 記事に必ず含める「あなたが書く欄」。ここが未記入のまま公開されるのを防ぐ。
@@ -116,6 +120,27 @@ def next_keyword() -> tuple[dict, dict] | tuple[None, None]:
     return pending[0], data
 
 
+def find_keyword(slug: str) -> tuple[dict | None, dict]:
+    """slug からキーワードを引く。(該当エントリ, 全体データ) を返す。"""
+    data = load_json(KEYWORDS_PATH)
+    for entry in data.get("keywords", []):
+        if entry.get("slug") == slug:
+            return entry, data
+    return None, data
+
+
+def find_post(slug: str) -> "Draft | None":
+    """公開済みの記事を slug で探す。作り直しのときに使う。"""
+    for path in sorted(POSTS.glob("*.md")):
+        try:
+            text = path.read_text(encoding="utf-8")
+            if f'"slug": "{slug}"' in text:
+                return read_draft(path.stem, POSTS)
+        except OSError:
+            continue
+    return None
+
+
 def mark_keyword(data: dict, keyword: str, status: str) -> None:
     for entry in data.get("keywords", []):
         if entry.get("keyword") == keyword:
@@ -144,6 +169,10 @@ class Draft:
     table_html: str = ""            # サイト用の比較表HTML（本文中の <!--TABLE--> に差し込む）
     stats_html: str = ""            # 集計セクション（ブラウザが中身を埋める）
     email_table_html: str = ""      # 承認メール用（インラインCSS版）
+    # 紹介する商品。選択ページで読者（運営者）のブラウザが楽天から取得したもの。
+    # 空なら旧形式（選び方ガイド）の記事として表示する。
+    products: list = field(default_factory=list)
+    updated_at: str = ""            # 作り直したときの日付。公開日は変えない
 
     # ---- 保存形式 ----
     # front matter を <!--META ... --> で囲む。Markdownとして壊れず、パースも単純。
@@ -157,6 +186,8 @@ class Draft:
             "description": self.description,
             "created_at": self.created_at, "published_at": self.published_at,
         }
+        if self.updated_at:
+            meta["updated_at"] = self.updated_at
         return (
             f"{self.META_OPEN}\n"
             f"{json.dumps(meta, ensure_ascii=False, indent=2)}\n"
@@ -166,7 +197,8 @@ class Draft:
 
     @classmethod
     def from_text(cls, text: str, table_html: str = "",
-                  email_table_html: str = "", stats_html: str = "") -> "Draft":
+                  email_table_html: str = "", stats_html: str = "",
+                  products_json: str = "") -> "Draft":
         if not text.startswith(cls.META_OPEN):
             raise ValueError("ドラフトのメタ情報が見つかりません")
         end = text.index(cls.META_CLOSE)
@@ -179,9 +211,11 @@ class Draft:
             description=meta.get("description", ""),
             created_at=meta.get("created_at", ""),
             published_at=meta.get("published_at", ""),
+            updated_at=meta.get("updated_at", ""),
             table_html=table_html,
             stats_html=stats_html,
             email_table_html=email_table_html,
+            products=json.loads(products_json) if products_json.strip() else [],
         )
 
     # ---- プレースホルダ検査 ----
@@ -206,6 +240,7 @@ def read_draft(draft_id: str, directory: Path = DRAFTS) -> Draft:
         read_side(".table.html"),
         read_side(".email.html"),
         read_side(".stats.html"),
+        read_side(".products.json"),
     )
 
 
@@ -218,6 +253,9 @@ def write_draft(draft: Draft, directory: Path = DRAFTS) -> Path:
                             (".email.html", draft.email_table_html)):
         if content:
             (directory / f"{draft.id}{suffix}").write_text(content, encoding="utf-8")
+    if draft.products:
+        (directory / f"{draft.id}.products.json").write_text(
+            json.dumps(draft.products, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
 
 

@@ -386,9 +386,53 @@ JS_TEMPLATE = r"""/* 楽天 比較表・集計ウィジェット（自動生成�
 
   /* ---------------- 起動 ---------------- */
 
+  /* ---------------- 商品カードの価格を最新にする ---------------- */
+  // 記事の商品カードには、記事を書いた日の価格が「〇/〇時点」付きで入っている。
+  // 開いた時点の価格に書き換え、販売が終わっていればそう表示する。
+  // 失敗しても元の表示が残るだけなので、読者に空欄は見せない。
+  function refreshPrices() {
+    var boxes = document.querySelectorAll(".pc-price[data-item-code]");
+    var codes = [];
+    Array.prototype.forEach.call(boxes, function (b) {
+      var c = b.getAttribute("data-item-code");
+      if (c && codes.indexOf(c) < 0) codes.push(c);
+    });
+    // 楽天APIは短時間に連続で呼ぶと断られるため、1件ずつ間をあけて取りに行く
+    codes.reduce(function (chain, code) {
+      return chain.then(function () {
+        var params = new URLSearchParams({
+          applicationId: CONFIG.applicationId, accessKey: CONFIG.accessKey,
+          itemCode: code, hits: "1", format: "json"
+        });
+        if (CONFIG.affiliateId) params.set("affiliateId", CONFIG.affiliateId);
+        return fetch(ENDPOINT + "?" + params).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        }).then(function (data) {
+          var it = ((data.Items || [])[0] || {});
+          it = it.Item || it;
+          var matches = document.querySelectorAll('.pc-price[data-item-code="' + code + '"]');
+          Array.prototype.forEach.call(matches, function (b) {
+            var numEl = b.querySelector(".pc-price-num"), note = b.querySelector(".pc-price-note");
+            if (it.itemPrice) {
+              numEl.textContent = yen(it.itemPrice);
+              note.textContent = "（税込）";
+            } else if (data.Items && !data.Items.length) {
+              b.classList.add("is-gone");
+              numEl.textContent = "現在は販売されていない可能性があります";
+              note.textContent = "";
+            }
+          });
+        }).catch(function () { /* 取れなければ記事作成時の価格のまま */ })
+          .then(function () { return new Promise(function (ok) { setTimeout(ok, 400); }); });
+      });
+    }, Promise.resolve());
+  }
+
   function start() {
     var tables = document.querySelectorAll("." + CONFIG.placeholderClass);
     var statsBoxes = document.querySelectorAll("." + CONFIG.statsClass);
+    if (CONFIG.applicationId && CONFIG.accessKey) refreshPrices();
     if (!tables.length && !statsBoxes.length) return;
 
     if (!CONFIG.applicationId || !CONFIG.accessKey) {

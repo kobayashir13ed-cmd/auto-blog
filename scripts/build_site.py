@@ -20,47 +20,109 @@ from pathlib import Path
 
 import markdown as md
 
-from . import common
+from . import common, pick_page, products_view
 from .hikaku import widget
 from .hikaku.table import CSS as TABLE_CSS
 
 SITE_CSS = """
-:root{--fg:#1a1c1f;--muted:#5d646d;--bg:#fff;--border:#e2e5e9;--link:#0b62d0;--soft:#f6f7f9}
-@media (prefers-color-scheme:dark){
-  :root{--fg:#e8eaed;--muted:#9aa3ad;--bg:#16181c;--border:#2f343b;--link:#6ea8fe;--soft:#1e2126}}
+/* 色と文字の決まりごと。色は「意味」にだけ使う：
+   brand … サイトの印・順位・結論（読者を案内する色）
+   cta   … 購入ボタンだけ（押してほしい場所を1つの色に絞る）
+   ダークモードには切り替えない。商品写真は白地で撮られていることが多く、
+   黒背景だと写真の白い縁が浮いて見づらいため。 */
+:root{--ink:#1f2328;--muted:#5c6370;--bg:#fff;--surface:#f6f6f3;--border:#e4e4df;
+  --brand:#0f5e5b;--brand-soft:#eaf4f3;--cta:#e8590c;--cta-shade:#b84308;--star:#f08c00;
+  --head-font:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);line-height:1.85;
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
-  -webkit-font-smoothing:antialiased}
-a{color:var(--link)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:16.5px;line-height:1.9;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN",
+  "Noto Sans JP","Yu Gothic",Meiryo,sans-serif;-webkit-font-smoothing:antialiased;
+  line-break:strict;overflow-wrap:anywhere}
+a{color:var(--brand)}
+img{max-width:100%;height:auto}
 .container{max-width:760px;margin:0 auto;padding:0 20px}
-header.site{border-bottom:1px solid var(--border);padding:18px 0;margin-bottom:40px}
-header.site .container{display:flex;align-items:center;justify-content:space-between;gap:16px}
-header.site a.brand{font-weight:700;font-size:17px;color:var(--fg);text-decoration:none}
-header.site nav a{font-size:14px;margin-left:16px}
-h1{font-size:1.85rem;line-height:1.45;margin:0 0 12px;letter-spacing:.01em}
-h2{font-size:1.35rem;margin:2.4rem 0 .9rem;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
-h2 a{color:var(--fg);text-decoration:none}
-h2 a:hover{color:var(--link)}
-h3{font-size:1.1rem;margin:1.8rem 0 .6rem}
-p{margin:0 0 1.2rem}
-.meta{font-size:.82rem;color:var(--muted);margin:0 0 28px}
-article img{max-width:100%;height:auto}
-article ul,article ol{padding-left:1.4em}
-article li{margin:.3rem 0}
-.postlist{list-style:none;padding:0;margin:0}
-.postlist li{border-bottom:1px solid var(--border);padding:18px 0}
-.postlist a{font-size:1.05rem;font-weight:700;text-decoration:none;color:var(--fg)}
-.postlist a:hover{color:var(--link)}
-.postlist a:hover{text-decoration:underline}
-.postlist .meta{margin:4px 0 0;font-size:.78rem}
-.lead{font-size:.95rem;color:var(--muted);margin:0 0 32px}
-footer.site{margin-top:64px;border-top:1px solid var(--border);padding:24px 0 48px;
-  font-size:.8rem;color:var(--muted)}
+.container--wide{max-width:1040px}
+
+/* ヘッダー */
+header.site{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.94);
+  backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--border)}
+header.site .container{display:flex;align-items:center;gap:20px;min-height:60px;max-width:1040px}
+header.site a.brand{display:flex;align-items:center;gap:10px;font-family:var(--head-font);
+  font-weight:700;font-size:1.15rem;color:var(--ink);text-decoration:none;letter-spacing:.04em;flex:none}
+header.site a.brand::before{content:"";width:22px;height:22px;border-radius:6px;background:var(--brand);
+  box-shadow:inset 0 0 0 5px var(--brand),inset 0 0 0 7px #fff}
+header.site nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
+header.site nav::-webkit-scrollbar{display:none}
+header.site nav a{flex:none;font-size:.86rem;padding:.4rem .7rem;border-radius:8px;color:var(--muted);
+  text-decoration:none;font-weight:700}
+header.site nav a:hover{background:var(--surface);color:var(--ink)}
+
+/* 記事 */
+.post{padding:32px 0 0}
+.post-head{margin:0 0 28px}
+.chip{display:inline-block;padding:.18rem .7rem;border-radius:999px;background:var(--brand-soft);
+  color:var(--brand);font-size:.78rem;font-weight:700;text-decoration:none;margin:0 0 .8rem}
+h1{font-family:var(--head-font);font-size:1.9rem;line-height:1.45;margin:0 0 .8rem;
+  letter-spacing:.02em;font-feature-settings:"palt"}
+h2{font-family:var(--head-font);font-size:1.38rem;line-height:1.5;margin:3.2rem 0 1rem;
+  padding:.1rem 0 .1rem .8rem;border-left:5px solid var(--brand);letter-spacing:.02em;
+  font-feature-settings:"palt"}
+h2 a{color:var(--ink);text-decoration:none}
+h3{font-size:1.08rem;line-height:1.55;margin:2rem 0 .6rem}
+p{margin:0 0 1.15rem}
+strong{background:linear-gradient(transparent 62%,#ffe8a3 62%);font-weight:700}
+.meta{font-size:.82rem;color:var(--muted);margin:0}
+.notice{margin:14px 0 0;padding:.6rem .9rem;border-radius:10px;background:var(--surface);
+  font-size:.78rem;color:var(--muted);line-height:1.7}
+.post-body ul,.post-body ol{padding-left:1.4em;margin:0 0 1.2rem}
+.post-body li{margin:.3rem 0}
+blockquote{margin:1.2rem 0 1.6rem;padding:.9rem 1.1rem;border-left:4px solid var(--brand);
+  border-radius:0 12px 12px 0;background:var(--brand-soft)}
+blockquote p:last-child{margin:0}
+blockquote strong{background:none;color:var(--brand)}
+.post-body table:not(.hkg-stats-table){border-collapse:collapse;width:100%;font-size:.9rem;margin:0 0 1.4rem}
+.post-body table:not(.hkg-stats-table) th,.post-body table:not(.hkg-stats-table) td{
+  border:1px solid var(--border);padding:.55rem .7rem;text-align:left}
+.post-body table:not(.hkg-stats-table) th{background:var(--surface)}
+
+/* 一覧 */
+.hero{padding:40px 0 8px}
+.hero h1{font-size:1.7rem;margin:0 0 .4rem}
+.lead{font-size:.95rem;color:var(--muted);margin:0 0 8px}
+.section-title{font-family:var(--head-font);font-size:1.2rem;margin:2.4rem 0 1rem;
+  display:flex;align-items:baseline;justify-content:space-between;gap:1rem;border:0;padding:0}
+.section-title a{font-size:.82rem;font-family:inherit;font-weight:700;color:var(--brand)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;
+  list-style:none;margin:0;padding:0}
+.card a{display:flex;flex-direction:column;height:100%;border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;text-decoration:none;color:var(--ink);background:#fff;
+  transition:border-color .2s,transform .2s}
+.card a:hover{border-color:var(--brand);transform:translateY(-2px)}
+/* 画像の有無で高さがずれないよう、枠の比率を固定して中に収める */
+.card-img{position:relative;height:0;padding-bottom:75%;background:#fff;border-bottom:1px solid var(--border)}
+.card-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:12px}
+.card-img--none span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card-img--none{background:var(--surface);color:var(--brand);font-family:var(--head-font);
+  font-weight:700;font-size:1.05rem;letter-spacing:.06em}
+.card-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card-title{font-weight:700;font-size:.95rem;line-height:1.55}
+.card-meta{font-size:.74rem;color:var(--muted);margin-top:auto}
+
+footer.site{margin-top:80px;border-top:1px solid var(--border);padding:28px 0 56px;
+  font-size:.8rem;color:var(--muted);background:var(--surface)}
+footer.site .container{max-width:1040px}
 footer.site a{color:var(--muted)}
-.notice{background:var(--soft);border-radius:8px;padding:12px 16px;font-size:.82rem;
-  color:var(--muted);margin:0 0 28px}
-@media (max-width:600px){h1{font-size:1.5rem}h2{font-size:1.2rem}body{line-height:1.8}}
+footer.site p{margin:0 0 .4rem}
+@media (max-width:640px){
+  body{font-size:16px;line-height:1.85}
+  h1{font-size:1.5rem}h2{font-size:1.22rem;margin-top:2.6rem}
+  header.site .container{gap:12px}
+  .cards{grid-template-columns:1fr 1fr;gap:12px}
+  .card-body{padding:10px}
+  .card-title{font-size:.86rem}
+}
 """
 
 
@@ -76,12 +138,23 @@ def category_name(config: dict, slug: str) -> str:
     return slug or "その他"
 
 
-def head(title: str, description: str, config: dict, canonical: str = "") -> str:
+def head(title: str, description: str, config: dict, canonical: str = "",
+         image: str = "", noindex: bool = False) -> str:
     base = config.get("base_url", "").rstrip("/")
     prefix = escape(config.get("path_prefix", "/"))
-    canonical_tag = (
-        f'<link rel="canonical" href="{escape(base + canonical)}">' if base and canonical else ""
-    )
+    canonical_url = base + canonical if base and canonical else ""
+    canonical_tag = f'<link rel="canonical" href="{escape(canonical_url)}">' if canonical_url else ""
+    # SNSで共有されたときの表示。画像があると一覧の中で目に留まりやすい
+    og = [f'<meta property="og:title" content="{escape(title)}">',
+          f'<meta property="og:description" content="{escape(description)}">',
+          f'<meta property="og:site_name" content="{escape(config.get("site_title", ""))}">',
+          '<meta property="og:type" content="article">']
+    if canonical_url:
+        og.append(f'<meta property="og:url" content="{escape(canonical_url)}">')
+    if image:
+        og += [f'<meta property="og:image" content="{escape(image)}">',
+               '<meta name="twitter:card" content="summary_large_image">']
+    robots = '<meta name="robots" content="noindex,nofollow">' if noindex else ""
     # 記事が1本もないカテゴリはページを生成しないので、ナビにも出さない。
     # 出してしまうとリンク先が404になる。
     active = config.get("_active_categories")
@@ -98,6 +171,11 @@ def head(title: str, description: str, config: dict, canonical: str = "") -> str
 <title>{escape(title)}</title>
 <meta name="description" content="{escape(description)}">
 {canonical_tag}
+{robots}
+{chr(10).join(og)}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700&display=swap">
 <link rel="stylesheet" href="{prefix}style.css">
 <script src="{prefix}rakuten-table.js" defer></script>
 </head>
@@ -113,16 +191,22 @@ def foot(config: dict) -> str:
     prefix = escape(config.get("path_prefix", "/"))
     return f"""</div>
 <footer class="site"><div class="container">
-  <p>当サイトはアフィリエイトプログラムに参加しており、記事には広告（PR）が含まれます。</p>
+  <p>当サイトはアフィリエイトプログラムに参加しており、記事には広告（PR）が含まれます。
+     商品の価格・在庫は、リンク先の販売ページで最新の情報をご確認ください。</p>
   <p>&copy; {common.now_jst().year} {escape(config.get('site_title', ''))}
-     <a href="{prefix}about/">運営者情報・免責事項</a></p>
+     ・<a href="{prefix}about/">運営者情報・免責事項</a></p>
 </div></footer>
 </body></html>"""
 
 
 def render_post(draft: common.Draft, config: dict) -> str:
     body_html = md.markdown(draft.body, extensions=["extra", "sane_lists", "toc"])
-    body_html = body_html.replace("<!--TABLE-->", draft.table_html or "")
+    if draft.products:
+        # 商品紹介形式。差し込み記号を結論ボックス・比較表・商品カードに置き換える
+        body_html = products_view.fill(body_html, draft.products)
+    else:
+        # 旧形式（選び方ガイド）。楽天の検索結果を読者のブラウザで並べる
+        body_html = body_html.replace("<!--TABLE-->", draft.table_html or "")
     body_html = body_html.replace("<!--STATS-->", draft.stats_html or "")
 
     # 未記入欄が残ったまま公開された場合、読者に見せないよう除去する
@@ -131,75 +215,83 @@ def render_post(draft: common.Draft, config: dict) -> str:
 
     prefix = config.get("path_prefix", "/")
     published = draft.published_at or draft.created_at
+    dates = f"公開日 {escape(published)}"
+    if draft.updated_at and draft.updated_at != published:
+        dates += f"　更新日 {escape(draft.updated_at)}"
 
-    breadcrumb = ""
+    chip = ""
     if draft.category:
-        breadcrumb = (
-            f' / <a href="{escape(prefix)}category/{escape(draft.category)}/">'
-            f"{escape(category_name(config, draft.category))}</a>"
-        )
+        chip = (f'<a class="chip" href="{escape(prefix)}category/{escape(draft.category)}/">'
+                f"{escape(category_name(config, draft.category))}</a>")
+    image = products_view.top_image(draft.products, draft.body) if draft.products else ""
 
-    return f"""{head(draft.title, draft.description, config, f"{prefix}{draft.slug}/")}
-<article>
-  <h1>{escape(draft.title)}</h1>
-  <p class="meta">公開日：{escape(published)}{breadcrumb}</p>
-  <p class="notice">本記事にはアフィリエイト広告（PR）が含まれます。
-     価格・在庫は掲載時点のものです。</p>
+    return f"""{head(draft.title, draft.description, config, f"{prefix}{draft.slug}/", image=image)}
+<article class="post">
+  <div class="post-head">
+    {chip}
+    <h1>{escape(draft.title)}</h1>
+    <p class="meta">{dates}</p>
+    <p class="notice">本記事にはアフィリエイト広告（PR）が含まれます。商品の情報は、
+       楽天市場の商品情報（価格・評価・商品説明）にもとづいています。
+       編集部は紹介する商品を実際には使用していません。</p>
+  </div>
+  <div class="post-body">
   {body_html}
+  </div>
 </article>
 {foot(config)}"""
 
 
-def post_list(posts: list[common.Draft], config: dict, show_category: bool = False) -> str:
+def post_list(posts: list[common.Draft], config: dict, show_category: bool = True) -> str:
+    """記事をカードで並べる。商品紹介形式の記事は1位の商品画像を見出し画像にする。"""
     if not posts:
         return "<p>まだ記事がありません。</p>"
     prefix = escape(config.get("path_prefix", "/"))
     items = []
     for p in posts:
-        label = ""
-        if show_category and p.category:
-            label = f"　{escape(category_name(config, p.category))}"
+        img = products_view.top_image(p.products, p.body) if p.products else ""
+        if img:
+            figure = (f'<div class="card-img"><img src="{escape(img, quote=True)}" alt="" '
+                      f'loading="lazy" decoding="async" width="300" height="225"></div>')
+        else:
+            figure = (f'<div class="card-img card-img--none">'
+                      f'<span>{escape(category_name(config, p.category))}</span></div>')
+        label = escape(category_name(config, p.category)) if show_category and p.category else ""
+        date = escape(p.updated_at or p.published_at or p.created_at)
         items.append(
-            f'  <li><a href="{prefix}{escape(p.slug)}/">{escape(p.title)}</a>'
-            f'<p class="meta">{escape(p.published_at or p.created_at)}{label}</p></li>'
+            f'  <li class="card"><a href="{prefix}{escape(p.slug)}/">{figure}'
+            f'<div class="card-body"><span class="card-title">{escape(p.title)}</span>'
+            f'<span class="card-meta">{label}{"　" if label else ""}{date}</span></div></a></li>'
         )
-    return '<ul class="postlist">\n' + "\n".join(items) + "\n</ul>"
+    return '<ul class="cards">\n' + "\n".join(items) + "\n</ul>"
 
 
 def render_index(posts: list[common.Draft], config: dict) -> str:
     prefix = escape(config.get("path_prefix", "/"))
-    body = ""
+    # 新しい記事（作り直しを含む）を先頭に
+    ordered = sorted(posts, key=lambda p: p.updated_at or p.published_at or p.created_at,
+                     reverse=True)
+    blocks = [f'<h2 class="section-title">新着</h2>\n{post_list(ordered[:8], config)}']
 
-    # カテゴリが定義されていればカテゴリごとに最新数件を並べる。
-    # 雑記型サイトでは、何を扱っているサイトなのかを一目で示すことが重要。
-    cats = categories(config)
-    if cats and posts:
-        blocks = []
-        for cat in cats:
-            in_cat = [p for p in posts if p.category == cat["slug"]]
-            if not in_cat:
-                continue
-            more = ""
-            if len(in_cat) > 5:
-                more = (f'<p class="meta"><a href="{prefix}category/{escape(cat["slug"])}/">'
-                        f'{escape(cat["name"])}の記事をすべて見る（{len(in_cat)}件）</a></p>')
-            blocks.append(
-                f'<h2><a href="{prefix}category/{escape(cat["slug"])}/">'
-                f'{escape(cat["name"])}</a></h2>\n'
-                f'{post_list(in_cat[:5], config)}\n{more}'
-            )
-        uncategorized = [p for p in posts if not p.category
-                         or p.category not in {c["slug"] for c in cats}]
-        if uncategorized:
-            blocks.append("<h2>その他</h2>\n" + post_list(uncategorized[:5], config))
-        body = "\n".join(blocks)
-    else:
-        body = post_list(posts, config)
+    # カテゴリごとに最新数件。雑記型サイトでは、何を扱うサイトなのかを一目で示すことが重要
+    for cat in categories(config):
+        in_cat = [p for p in ordered if p.category == cat["slug"]]
+        if not in_cat:
+            continue
+        more = (f'<a href="{prefix}category/{escape(cat["slug"])}/">すべて見る（{len(in_cat)}件）</a>'
+                if len(in_cat) > 4 else "")
+        blocks.append(
+            f'<h2 class="section-title"><span>{escape(cat["name"])}</span>{more}</h2>\n'
+            f'{post_list(in_cat[:4], config, show_category=False)}')
 
     return f"""{head(config.get('site_title', 'ブログ'), config.get('site_description', ''), config, config.get('path_prefix', '/'))}
-<h1>{escape(config.get('site_title', 'ブログ'))}</h1>
-<p class="lead">{escape(config.get('site_description', ''))}</p>
-{body}
+</div><div class="container container--wide">
+<section class="hero">
+  <h1>{escape(config.get('site_title', 'ブログ'))}</h1>
+  <p class="lead">{escape(config.get('site_description', ''))}</p>
+</section>
+{chr(10).join(blocks)}
+</div><div class="container">
 {foot(config)}"""
 
 
@@ -207,9 +299,13 @@ def render_category(cat: dict, posts: list[common.Draft], config: dict) -> str:
     prefix = config.get("path_prefix", "/")
     description = cat.get("description", "") or f"{cat['name']}に関する記事の一覧です。"
     return f"""{head(f"{cat['name']}の記事一覧", description, config, f"{prefix}category/{cat['slug']}/")}
-<h1>{escape(cat['name'])}</h1>
-<p class="lead">{escape(description)}</p>
-{post_list(posts, config)}
+</div><div class="container container--wide">
+<section class="hero">
+  <h1>{escape(cat['name'])}</h1>
+  <p class="lead">{escape(description)}</p>
+</section>
+{post_list(posts, config, show_category=False)}
+</div><div class="container">
 {foot(config)}"""
 
 
@@ -232,6 +328,12 @@ def render_about(config: dict) -> str:
   <p>当サイトは、楽天アフィリエイトをはじめとするアフィリエイトプログラムに参加しています。
      記事内のリンクを経由して商品が購入された場合、当サイトに紹介料が発生することがあります。
      広告を含む記事には、その旨を記事冒頭に明示しています。</p>
+
+  <h2>記事の作り方について</h2>
+  <p>当サイトの記事は、楽天市場で公開されている商品情報（価格・評価の平均点と件数・商品説明）を
+     もとに、AIを使って作成し、運営者が紹介する商品を選んでいます。
+     編集部は紹介する商品を実際には使用しておらず、使用感や購入者の感想を書くことはしていません。
+     商品の仕様は販売ページの記載に基づいています。</p>
 
   <h2>掲載情報について</h2>
   <p>価格・在庫・仕様は記事の掲載時点の情報です。最新の情報は各販売ページでご確認ください。
@@ -277,7 +379,8 @@ def load_posts() -> list[common.Draft]:
         try:
             posts.append(common.Draft.from_text(
                 path.read_text(encoding="utf-8"),
-                side(".table.html"), side(".email.html"), side(".stats.html")))
+                side(".table.html"), side(".email.html"), side(".stats.html"),
+                side(".products.json")))
         except (ValueError, KeyError) as exc:
             print(f"  [警告] {path.name} を読み飛ばしました: {exc}")
     return posts
@@ -295,7 +398,8 @@ def main() -> None:
     common.SITE.mkdir(parents=True)
 
     (common.SITE / "style.css").write_text(
-        SITE_CSS + "\n" + TABLE_CSS + "\n" + widget.EXTRA_CSS, encoding="utf-8")
+        SITE_CSS + "\n" + TABLE_CSS + "\n" + widget.EXTRA_CSS + "\n" + products_view.CSS,
+        encoding="utf-8")
 
     # 比較表ウィジェット。楽天の公開キーを埋め込んだJSを書き出す。
     # このキーはブラウザに露出する前提のもので、楽天側のドメイン制限が防御になる。
@@ -312,6 +416,11 @@ def main() -> None:
         print("  [注意] config.json の rakuten_client が未設定です。"
               "比較表は検索リンクのみの表示になります。")
     (common.SITE / "index.html").write_text(render_index(posts, config), encoding="utf-8")
+
+    # 商品を選ぶページ。運営者だけが使う画面なので検索には出さない（noindex・robots で除外）
+    pick_dir = common.SITE / "pick"
+    pick_dir.mkdir()
+    (pick_dir / "index.html").write_text(pick_page.render(config), encoding="utf-8")
 
     about_dir = common.SITE / "about"
     about_dir.mkdir()
@@ -339,7 +448,8 @@ def main() -> None:
     if base:
         (common.SITE / "sitemap.xml").write_text(render_sitemap(posts, config), encoding="utf-8")
         (common.SITE / "robots.txt").write_text(
-            f"User-agent: *\nAllow: /\n\nSitemap: {base}/sitemap.xml\n", encoding="utf-8")
+            f"User-agent: *\nAllow: /\nDisallow: /pick/\n\nSitemap: {base}/sitemap.xml\n",
+            encoding="utf-8")
 
     # static/ の中身はそのままサイトへコピーする。
     # 生成対象ではないファイル（検証用HTML、favicon、ads.txt など）を置く場所。

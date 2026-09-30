@@ -1,19 +1,29 @@
-name: 記事ドラフトを生成して承認メールを送る
+name: 朝の商品選択メールを送る
+
+# 平日の朝、今日の記事のキーワードと「商品を選ぶ」ボタンをメールで送る。
+# ボタンの先（mekikilab.com/pick/）で商品を選ぶと、write.yml が記事を書いて公開する。
+#
+# なぜ朝に記事を書かないのか:
+#   楽天の商品検索は「自分のサイトから呼ぶ」専用のキーで、このサーバーからは使えない。
+#   運営者が選択ページを開くと、運営者のブラウザが楽天から候補を取ってくる。
 
 on:
   schedule:
     # 平日（月〜金）の朝7時（日本時間）。cron は UTC なので -9時間すると前日22:00 になり、
     # 曜日も1つ前へずれる（月→日=0 … 金→木=4）。よって日〜木 = 0-4 を指定する。
     - cron: "0 22 * * 0-4"
-  workflow_dispatch:      # 手動実行用。最初のテストはこれで回す。
+  workflow_dispatch:
+    inputs:
+      rewrite_all:
+        description: "公開済みの記事を作り直すためのリンクをまとめて送る"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
-  draft:
+  pick:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,89 +35,44 @@ jobs:
       - name: 依存パッケージをインストール
         run: pip install -r requirements.txt
 
-      # 楽天の認証情報はここでは不要。商品一覧は読者のブラウザが取得するため、
-      # 値は config.json の rakuten_client に置いてサイトのJSへ埋め込まれる。
       # 在庫が尽きると記事が作られなくなるため、少なくなったら先に補充する。
       # 在庫が足りているときはAPIを呼ばずに即終了するので、毎回走らせて問題ない。
-      # ここで失敗しても記事生成は続ける（補充は次回でも間に合う）。
+      # ここで失敗してもメールは送る（補充は次回でも間に合う）。
       - name: キーワードの在庫を確認し、少なければ補充する
+        if: ${{ !inputs.rewrite_all }}
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python -m scripts.research generate --min-stock 10 --count 12
 
-      - name: ドラフトを生成
-        id: gen
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python -m scripts.generate
-
-      - name: ドラフトをコミット
-        if: steps.gen.outputs.draft_id != ''
+      - name: 補充したキーワードをコミット
+        if: ${{ !inputs.rewrite_all }}
         run: |
           git config user.name "auto-blog"
           git config user.email "actions@github.com"
-          git add content/ keywords.json
+          git add keywords.json
           if git diff --staged --quiet; then
-            echo "コミットする変更はありません。"
+            echo "キーワードの変更はありません。"
             exit 0
           fi
-          git commit -m "draft: ${{ steps.gen.outputs.draft_id }}"
-          # 他のワークフローや手元からのプッシュとぶつかることがある。
-          # その場合はリモートを取り込んでから押し直す。
+          git commit -m "keywords: 在庫を補充"
           for i in 1 2 3; do
             if git push; then exit 0; fi
             echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
             git pull --rebase
           done
-          echo "3回試しましたがプッシュできませんでした。" >&2
           exit 1
 
-      # --- ここから下は auto_publish の設定で分岐する ---
-
-      - name: 承認メールを送信（auto_publish が false のとき）
-        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish != 'true'
+      - name: 商品選択のメールを送る
         env:
           APPROVAL_SECRET: ${{ secrets.APPROVAL_SECRET }}
-          WORKER_BASE_URL: ${{ secrets.WORKER_BASE_URL }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
           NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
-        run: python -m scripts.notify --draft-id "${{ steps.gen.outputs.draft_id }}"
-
-      - name: そのまま公開（auto_publish が true のとき）
-        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish == 'true'
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python -m scripts.publish \
-            --draft-id "${{ steps.gen.outputs.draft_id }}" --action approve
-
-      - name: 公開結果をコミット（auto_publish が true のとき）
-        if: steps.gen.outputs.draft_id != '' && steps.gen.outputs.auto_publish == 'true'
-        run: |
-          git add content/ site/ keywords.json
-          if git diff --staged --quiet; then
-            echo "コミットする変更はありません。"
-            exit 0
+          if [ "${{ inputs.rewrite_all }}" = "true" ]; then
+            python -m scripts.pickmail --rewrite-all
+          else
+            python -m scripts.pickmail
           fi
-          git commit -m "publish: ${{ steps.gen.outputs.draft_id }}"
-          # 他のワークフローや手元からのプッシュとぶつかることがある。
-          # その場合はリモートを取り込んでから押し直す。
-          for i in 1 2 3; do
-            if git push; then exit 0; fi
-            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
-            git pull --rebase
-          done
-          echo "3回試しましたがプッシュできませんでした。" >&2
-          exit 1
-
-      - uses: actions/configure-pages@v5
-        if: steps.gen.outputs.auto_publish == 'true'
-      - uses: actions/upload-pages-artifact@v3
-        if: steps.gen.outputs.auto_publish == 'true'
-        with:
-          path: site
-      - uses: actions/deploy-pages@v4
-        if: steps.gen.outputs.auto_publish == 'true'

@@ -55,6 +55,23 @@ def render_body(draft: common.Draft) -> str:
     どんな商品が並ぶかを楽天市場で確認する</a>
 </div>""")
 
+    # 商品紹介形式の差し込み記号。メールでは画像や最新価格は出さず、商品名とリンクだけ示す
+    products = getattr(draft, "products", []) or []
+
+    def product_box(n: int, label: str) -> str:
+        if not 1 <= n <= len(products):
+            return ""
+        item = products[n - 1]
+        return (f'<div style="padding:12px 14px;border:1px solid #d0d7de;border-radius:8px;'
+                f'margin:8px 0;font-size:13px;"><strong>{escape(label)}　商品{n}</strong><br>'
+                f'{escape(item.get("itemName", "")[:80])}<br>'
+                f'<a href="{escape(item.get("itemUrl", ""))}" style="color:#0969da;">楽天で確認する</a></div>')
+
+    import re as _re
+    html = _re.sub(r"<!--TOP:(\d+)-->", lambda m: product_box(int(m.group(1)), "結論ボックス"), html)
+    html = _re.sub(r"<!--PRODUCT:(\d+)-->", lambda m: product_box(int(m.group(1)), "商品カード"), html)
+    html = html.replace("<!--COMPARE-->", '<p style="color:#57606a;font-size:13px;">（ここに比較表が入ります）</p>')
+
     # 未記入欄を赤く目立たせる
     for name in ("実体験", "注意点", "結論"):
         html = html.replace(
@@ -66,8 +83,21 @@ def render_body(draft: common.Draft) -> str:
 
 
 def build_email_html(draft: common.Draft, urls: dict[str, str],
-                     edit_url: str, missing: list[str]) -> str:
+                     edit_url: str, missing: list[str], issues: list[str] | None = None) -> str:
     warning = ""
+    if issues:
+        items = "".join(f"<li style=\"margin:0 0 6px;\">{escape(i)}</li>" for i in issues[:10])
+        warning += f"""
+      <tr><td style="padding:0 0 20px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff4e5;
+          border:1px solid #ffb74d;border-radius:6px;">
+          <tr><td style="padding:16px;font-family:sans-serif;font-size:14px;color:#7a4f01;">
+            <strong>自動チェックで気になる点が{len(issues)}件あったため、公開を保留しました</strong>
+            <ul style="margin:10px 0 0;padding-left:20px;">{items}</ul>
+            内容を確認し、問題なければ公開、直したければGitHubで編集してから公開してください。
+          </td></tr>
+        </table>
+      </td></tr>"""
     if missing:
         items = "、".join(missing)
         warning = f"""
@@ -153,7 +183,7 @@ def send_html(subject: str, html: str, text: str, config: dict) -> None:
     print(f"メールを送信しました → {message['To']}")
 
 
-def send(draft: common.Draft, config: dict) -> None:
+def send(draft: common.Draft, config: dict, issues: list[str] | None = None) -> None:
     secret = common.env("APPROVAL_SECRET")
     worker_base = common.env("WORKER_BASE_URL")
     urls = tokens.approval_urls(worker_base, secret, draft.id)
@@ -169,7 +199,7 @@ def send(draft: common.Draft, config: dict) -> None:
 
     send_html(
         subject=f"[承認依頼] {draft.title}",
-        html=build_email_html(draft, urls, edit_url, missing),
+        html=build_email_html(draft, urls, edit_url, missing, issues),
         text=(
             f"記事の承認依頼です。\n\n"
             f"タイトル: {draft.title}\n"
@@ -182,6 +212,86 @@ def send(draft: common.Draft, config: dict) -> None:
     )
     if missing:
         print(f"  未記入欄が{len(missing)}箇所あることを本文に明記しました。")
+
+
+# --------------------------------------------------------------------------
+# 商品選択の依頼と、公開のお知らせ
+# --------------------------------------------------------------------------
+
+def simple_email(label: str, heading: str, paragraphs: list[str],
+                 buttons: list[tuple[str, str, str]], note: str = "") -> str:
+    """見出し・本文・ボタンだけの短いメール。buttons は (文言, URL, 色)。"""
+    body = "".join(
+        f'<tr><td style="font-family:sans-serif;font-size:15px;line-height:1.8;color:#24292f;'
+        f'padding:0 0 14px;">{p}</td></tr>' for p in paragraphs if p)
+    btns = "".join(
+        f'<tr><td style="padding:4px 0 10px;"><a href="{escape(url)}" '
+        f'style="{BTN}background:{color};color:#ffffff;">{escape(text)}</a></td></tr>'
+        for text, url, color in buttons)
+    foot = (f'<tr><td style="font-family:sans-serif;font-size:12px;color:#888;background:#f6f8fa;'
+            f'padding:12px 14px;border-radius:6px;">{note}</td></tr>') if note else ""
+    return f"""<!DOCTYPE html>
+<html lang="ja"><body style="margin:0;padding:24px 12px;background:#f4f5f7;">
+<table align="center" width="100%" cellpadding="0" cellspacing="0"
+  style="max-width:620px;margin:0 auto;background:#ffffff;border-radius:10px;">
+  <tr><td style="padding:28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="font-family:sans-serif;font-size:12px;color:#777;letter-spacing:.08em;
+        padding:0 0 6px;">{escape(label)}</td></tr>
+      <tr><td style="font-family:sans-serif;font-size:21px;font-weight:bold;color:#1a1c1f;
+        line-height:1.45;padding:0 0 16px;">{escape(heading)}</td></tr>
+      {body}{btns}{foot}
+    </table>
+  </td></tr>
+</table>
+</body></html>"""
+
+
+def send_pick(entry: dict, url: str, config: dict) -> None:
+    site = config.get("site_title", "")
+    intent = entry.get("intent", "")
+    html = simple_email(
+        f"{site}／今日の記事", entry["keyword"],
+        [f"今日の記事のキーワードです。<br><strong>{escape(entry['keyword'])}</strong>",
+         (f"狙い：{escape(intent)}" if intent else ""),
+         "ボタンを押すと、楽天市場の候補が表示されます。紹介する商品を2〜5個選んで送ると、"
+         "5人の担当（リサーチ・企画・ライター・編集長・事実確認）が記事を書き、"
+         "問題がなければそのまま公開されます。"],
+        [("商品を選ぶ", url, "#e8590c")],
+        "今日選ばなくても、明日の朝また同じキーワードで届きます。このリンクは14日間有効です。",
+    )
+    send_html(subject=f"[{site}] 今日の記事の商品を選んでください：{entry['keyword']}",
+              html=html, text=f"今日の記事：{entry['keyword']}\n商品を選ぶ: {url}\n", config=config)
+
+
+def send_published(title: str, url: str, config: dict, summary: list[str]) -> None:
+    site = config.get("site_title", "")
+    lines = "".join(f"<li style=\"margin:0 0 4px;\">{escape(s)}</li>" for s in summary)
+    html = simple_email(
+        f"{site}／公開しました", title,
+        ["記事を公開しました。反映まで1〜2分かかることがあります。",
+         f'<ul style="margin:0;padding-left:20px;font-size:14px;color:#57606a;">{lines}</ul>' if summary else ""],
+        [("記事を見る", url, "#0f5e5b")],
+        "各担当の判断の経緯は、GitHubの content/reports/ に保存されています。",
+    )
+    send_html(subject=f"[{site}] 公開しました：{title}", html=html,
+              text=f"公開しました：{title}\n{url}\n", config=config)
+
+
+def send_rewrite_links(links: list[tuple[str, str]], config: dict) -> None:
+    """公開済み記事を作り直すための、商品選択リンクの一覧。"""
+    site = config.get("site_title", "")
+    rows = "".join(
+        f'<li style="margin:0 0 10px;"><a href="{escape(url)}" style="color:#0969da;">'
+        f'{escape(title)}</a></li>' for title, url in links)
+    html = simple_email(
+        f"{site}／記事の作り直し", f"作り直せる記事が{len(links)}本あります",
+        ["記事名を押すと、その記事の商品選択ページが開きます。商品を選んで送ると、"
+         "同じURLのまま商品紹介形式に作り直されます（公開日は変わりません）。",
+         f'<ul style="margin:0;padding-left:20px;font-size:14px;">{rows}</ul>'],
+        [], "1日に何本作り直しても構いません。リンクは14日間有効です。")
+    send_html(subject=f"[{site}] 記事の作り直し用リンク（{len(links)}本）", html=html,
+              text="\n".join(f"{t}: {u}" for t, u in links), config=config)
 
 
 def main(argv: list[str] | None = None) -> None:
