@@ -1,58 +1,111 @@
 
-:root{--fg:#1a1c1f;--muted:#5d646d;--bg:#fff;--border:#e2e5e9;--link:#0b62d0;--soft:#f6f7f9}
-@media (prefers-color-scheme:dark){
-  :root{--fg:#e8eaed;--muted:#9aa3ad;--bg:#16181c;--border:#2f343b;--link:#6ea8fe;--soft:#1e2126}}
+/* 色と文字の決まりごと。色は「意味」にだけ使う：
+   brand … サイトの印・順位・結論（読者を案内する色）
+   cta   … 購入ボタンだけ（押してほしい場所を1つの色に絞る）
+   ダークモードには切り替えない。商品写真は白地で撮られていることが多く、
+   黒背景だと写真の白い縁が浮いて見づらいため。 */
+:root{--ink:#1f2328;--muted:#5c6370;--bg:#fff;--surface:#f6f6f3;--border:#e4e4df;
+  --brand:#0f5e5b;--brand-soft:#eaf4f3;--cta:#e8590c;--cta-shade:#b84308;--star:#f08c00;
+  --head-font:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);line-height:1.85;
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
-  -webkit-font-smoothing:antialiased}
-a{color:var(--link)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:16.5px;line-height:1.9;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN",
+  "Noto Sans JP","Yu Gothic",Meiryo,sans-serif;-webkit-font-smoothing:antialiased;
+  line-break:strict;overflow-wrap:anywhere}
+a{color:var(--brand)}
+img{max-width:100%;height:auto}
 .container{max-width:760px;margin:0 auto;padding:0 20px}
-header.site{border-bottom:1px solid var(--border);padding:18px 0;margin-bottom:40px}
-header.site .container{display:flex;align-items:center;justify-content:space-between;gap:16px}
-header.site a.brand{font-weight:700;font-size:17px;color:var(--fg);text-decoration:none}
-header.site nav a{font-size:14px;margin-left:16px}
-h1{font-size:1.85rem;line-height:1.45;margin:0 0 12px;letter-spacing:.01em}
-h2{font-size:1.35rem;margin:2.4rem 0 .9rem;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
-h2 a{color:var(--fg);text-decoration:none}
-h2 a:hover{color:var(--link)}
-h3{font-size:1.1rem;margin:1.8rem 0 .6rem}
-p{margin:0 0 1.2rem}
-.meta{font-size:.82rem;color:var(--muted);margin:0 0 28px}
-article img{max-width:100%;height:auto}
-article ul,article ol{padding-left:1.4em}
-article li{margin:.3rem 0}
-.postlist{list-style:none;padding:0;margin:0}
-.postlist li{border-bottom:1px solid var(--border);padding:18px 0}
-.postlist a{font-size:1.05rem;font-weight:700;text-decoration:none;color:var(--fg)}
-.postlist a:hover{color:var(--link)}
-.postlist a:hover{text-decoration:underline}
-.postlist .meta{margin:4px 0 0;font-size:.78rem}
-.lead{font-size:.95rem;color:var(--muted);margin:0 0 32px}
-footer.site{margin-top:64px;border-top:1px solid var(--border);padding:24px 0 48px;
-  font-size:.8rem;color:var(--muted)}
+.container--wide{max-width:1040px}
+
+/* ヘッダー */
+header.site{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.94);
+  backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--border)}
+header.site .container{display:flex;align-items:center;gap:20px;min-height:60px;max-width:1040px}
+header.site a.brand{display:flex;align-items:center;gap:10px;font-family:var(--head-font);
+  font-weight:700;font-size:1.15rem;color:var(--ink);text-decoration:none;letter-spacing:.04em;flex:none}
+header.site a.brand::before{content:"";width:22px;height:22px;border-radius:6px;background:var(--brand);
+  box-shadow:inset 0 0 0 5px var(--brand),inset 0 0 0 7px #fff}
+header.site nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
+header.site nav::-webkit-scrollbar{display:none}
+header.site nav a{flex:none;font-size:.86rem;padding:.4rem .7rem;border-radius:8px;color:var(--muted);
+  text-decoration:none;font-weight:700}
+header.site nav a:hover{background:var(--surface);color:var(--ink)}
+
+/* 記事 */
+.post{padding:32px 0 0}
+.post-head{margin:0 0 28px}
+.chip{display:inline-block;padding:.18rem .7rem;border-radius:999px;background:var(--brand-soft);
+  color:var(--brand);font-size:.78rem;font-weight:700;text-decoration:none;margin:0 0 .8rem}
+h1{font-family:var(--head-font);font-size:1.9rem;line-height:1.45;margin:0 0 .8rem;
+  letter-spacing:.02em;font-feature-settings:"palt"}
+h2{font-family:var(--head-font);font-size:1.38rem;line-height:1.5;margin:3.2rem 0 1rem;
+  padding:.1rem 0 .1rem .8rem;border-left:5px solid var(--brand);letter-spacing:.02em;
+  font-feature-settings:"palt"}
+h2 a{color:var(--ink);text-decoration:none}
+h3{font-size:1.08rem;line-height:1.55;margin:2rem 0 .6rem}
+p{margin:0 0 1.15rem}
+strong{background:linear-gradient(transparent 62%,#ffe8a3 62%);font-weight:700}
+.meta{font-size:.82rem;color:var(--muted);margin:0}
+.notice{margin:14px 0 0;padding:.6rem .9rem;border-radius:10px;background:var(--surface);
+  font-size:.78rem;color:var(--muted);line-height:1.7}
+.post-body ul,.post-body ol{padding-left:1.4em;margin:0 0 1.2rem}
+.post-body li{margin:.3rem 0}
+blockquote{margin:1.2rem 0 1.6rem;padding:.9rem 1.1rem;border-left:4px solid var(--brand);
+  border-radius:0 12px 12px 0;background:var(--brand-soft)}
+blockquote p:last-child{margin:0}
+blockquote strong{background:none;color:var(--brand)}
+.post-body table:not(.hkg-stats-table){border-collapse:collapse;width:100%;font-size:.9rem;margin:0 0 1.4rem}
+.post-body table:not(.hkg-stats-table) th,.post-body table:not(.hkg-stats-table) td{
+  border:1px solid var(--border);padding:.55rem .7rem;text-align:left}
+.post-body table:not(.hkg-stats-table) th{background:var(--surface)}
+
+/* 一覧 */
+.hero{padding:40px 0 8px}
+.hero h1{font-size:1.7rem;margin:0 0 .4rem}
+.lead{font-size:.95rem;color:var(--muted);margin:0 0 8px}
+.section-title{font-family:var(--head-font);font-size:1.2rem;margin:2.4rem 0 1rem;
+  display:flex;align-items:baseline;justify-content:space-between;gap:1rem;border:0;padding:0}
+.section-title a{font-size:.82rem;font-family:inherit;font-weight:700;color:var(--brand)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;
+  list-style:none;margin:0;padding:0}
+.card a{display:flex;flex-direction:column;height:100%;border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;text-decoration:none;color:var(--ink);background:#fff;
+  transition:border-color .2s,transform .2s}
+.card a:hover{border-color:var(--brand);transform:translateY(-2px)}
+/* 画像の有無で高さがずれないよう、枠の比率を固定して中に収める */
+.card-img{position:relative;height:0;padding-bottom:75%;background:#fff;border-bottom:1px solid var(--border)}
+.card-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:12px}
+.card-img--none span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card-img--none{background:var(--surface);color:var(--brand);font-family:var(--head-font);
+  font-weight:700;font-size:1.05rem;letter-spacing:.06em}
+.card-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card-title{font-weight:700;font-size:.95rem;line-height:1.55}
+.card-meta{font-size:.74rem;color:var(--muted);margin-top:auto}
+
+footer.site{margin-top:80px;border-top:1px solid var(--border);padding:28px 0 56px;
+  font-size:.8rem;color:var(--muted);background:var(--surface)}
+footer.site .container{max-width:1040px}
 footer.site a{color:var(--muted)}
-.notice{background:var(--soft);border-radius:8px;padding:12px 16px;font-size:.82rem;
-  color:var(--muted);margin:0 0 28px}
-@media (max-width:600px){h1{font-size:1.5rem}h2{font-size:1.2rem}body{line-height:1.8}}
+footer.site p{margin:0 0 .4rem}
+@media (max-width:640px){
+  body{font-size:16px;line-height:1.85}
+  h1{font-size:1.5rem}h2{font-size:1.22rem;margin-top:2.6rem}
+  header.site .container{gap:12px}
+  .cards{grid-template-columns:1fr 1fr;gap:12px}
+  .card-body{padding:10px}
+  .card-title{font-size:.86rem}
+}
 
 
 .hkg-wrap{--hkg-fg:#1a1c1f;--hkg-muted:#5d646d;--hkg-bg:#fff;--hkg-card:#fff;
-  --hkg-border:#e2e5e9;--hkg-accent:#c8102e;--hkg-accent-soft:#fdeef0;
+  --hkg-border:#e2e5e9;--hkg-accent:#0f5e5b;--hkg-accent-soft:#eaf4f3;
   --hkg-thumb-bg:#f6f7f9;
   --hkg-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.05);
   color:var(--hkg-fg);background:var(--hkg-bg);
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
   line-height:1.7;margin:2rem 0;-webkit-font-smoothing:antialiased}
-@media (prefers-color-scheme:dark){.hkg-wrap:not([data-theme="light"]){
-  --hkg-fg:#e8eaed;--hkg-muted:#9aa3ad;--hkg-bg:#16181c;--hkg-card:#1e2126;
-  --hkg-border:#2f343b;--hkg-accent:#ff6b81;--hkg-accent-soft:#2a1d21;
-  --hkg-thumb-bg:#24282e;
-  --hkg-shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3)}}
-.hkg-wrap[data-theme="dark"]{--hkg-fg:#e8eaed;--hkg-muted:#9aa3ad;--hkg-bg:#16181c;
-  --hkg-card:#1e2126;--hkg-border:#2f343b;--hkg-accent:#ff6b81;--hkg-accent-soft:#2a1d21;
-  --hkg-thumb-bg:#24282e;
-  --hkg-shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3)}
 .hkg-wrap *{box-sizing:border-box}
 .hkg-title{font-size:1.4rem;font-weight:700;margin:0 0 .25rem;letter-spacing:.01em}
 .hkg-disclosure{font-size:.78rem;color:var(--hkg-muted);margin:0 0 1.25rem}
@@ -141,3 +194,96 @@ footer.site a{color:var(--muted)}
 .hkg-stats-note{font-size:.88rem;line-height:1.8;margin:1rem 0 0;padding:.9rem 1.1rem;
   background:var(--hkg-accent-soft);border-radius:8px}
 @media (max-width:600px){.hkg-stats-table th{width:52%}}
+
+
+/* ---------- 商品の部品 ---------- */
+.pc-top strong,.pc-card strong,.pc-compare strong{background:none}
+.pc-num{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;height:1.6em;
+  margin-right:.5em;padding:0 .35em;border-radius:6px;background:var(--brand);color:#fff;
+  font-size:.78em;font-weight:700;vertical-align:.1em}
+.pc-name{font-weight:700;line-height:1.5;margin:0 0 .4rem;font-size:1rem}
+.pc-rating{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem;font-size:.9rem;margin:0 0 .3rem}
+.pc-rating--none{color:var(--muted);font-size:.82rem}
+.pc-stars{color:var(--star);letter-spacing:.05em}
+.pc-count{color:var(--muted);font-size:.82rem}
+.pc-price{margin:0 0 .6rem;line-height:1.3}
+.pc-price-num{font-size:1.35rem;font-weight:700;letter-spacing:.01em}
+.pc-price-note{font-size:.75rem;color:var(--muted);margin-left:.25rem}
+.pc-price.is-gone .pc-price-num{font-size:.95rem;color:var(--muted)}
+.pc-shop{font-size:.78rem;color:var(--muted);margin:0 0 .8rem}
+.pc-buy{display:inline-flex;align-items:center;justify-content:center;min-height:48px;
+  padding:.7rem 1.4rem;border-radius:10px;background:var(--cta);color:#fff;font-weight:700;
+  text-decoration:none;font-size:.95rem;box-shadow:0 2px 0 var(--cta-shade)}
+.pc-buy:hover{filter:brightness(1.05);color:#fff}
+.pc-buy:active{transform:translateY(1px);box-shadow:none}
+.pc-sub{display:inline-flex;align-items:center;min-height:44px;font-size:.85rem;font-weight:700;
+  color:var(--brand);text-decoration:none}
+.pc-sub::after{content:"→";margin-left:.3rem}
+.pc-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}
+.pc-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .5rem}
+.pc-chips:empty{display:none}
+.pc-chip{display:inline-block;padding:.12rem .55rem;border-radius:999px;background:var(--surface);
+  border:1px solid var(--border);font-size:.72rem;font-weight:700;color:var(--muted)}
+.pc-chip--top{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* 結論ボックス */
+.pc-top{margin:1rem 0 2rem;border:2px solid var(--brand);border-radius:16px;overflow:hidden;background:#fff}
+.pc-top-label{margin:0;padding:.55rem 1.1rem;background:var(--brand);color:#fff;font-weight:700;
+  font-size:.9rem;letter-spacing:.06em}
+.pc-top-body{display:grid;grid-template-columns:160px 1fr;gap:1.1rem;padding:1.1rem}
+.pc-top-thumb,.pc-thumb,.pc-cmp-thumb{display:flex;align-items:center;justify-content:center;
+  background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;aspect-ratio:1/1}
+.pc-top-thumb img,.pc-thumb img,.pc-cmp-thumb img{width:100%;height:100%;object-fit:contain}
+.pc-top-thumb--empty,.pc-thumb--empty,.pc-cmp-thumb--empty{font-size:.75rem;color:var(--muted)}
+
+/* 商品カード */
+.pc-card{display:grid;grid-template-columns:200px 1fr;gap:1.25rem;margin:1rem 0 1.5rem;padding:1.25rem;
+  border:1px solid var(--border);border-radius:16px;background:#fff}
+.pc-card--top{border:2px solid var(--brand)}
+
+/* 比較表 */
+.pc-compare{overflow-x:auto;margin:1rem 0 .4rem;border:1px solid var(--border);border-radius:14px;
+  -webkit-overflow-scrolling:touch}
+.pc-compare table{border-collapse:separate;border-spacing:0;min-width:100%;font-size:.86rem}
+.pc-compare th,.pc-compare td{padding:.75rem .8rem;border-bottom:1px solid var(--border);
+  vertical-align:top;text-align:left;min-width:170px;background:#fff}
+.pc-compare tr:last-child th,.pc-compare tr:last-child td{border-bottom:0}
+.pc-compare tbody th,.pc-compare .pc-corner{position:sticky;left:0;z-index:1;min-width:76px;
+  width:76px;background:var(--surface);color:var(--muted);font-weight:700;font-size:.78rem}
+.pc-compare thead th{font-weight:700}
+.pc-compare .is-top{background:var(--brand-soft)}
+.pc-compare .pc-chip{margin:0 0 .45rem}
+.pc-cmp-thumb{width:110px;margin:0 0 .5rem}
+.pc-cmp-name{display:block;line-height:1.45;font-size:.84rem}
+.pc-compare .pc-price{margin:0}
+.pc-compare .pc-price-num{font-size:1.05rem}
+.pc-compare .pc-price-note{display:block;margin:0}
+.pc-compare .pc-buy{min-height:40px;padding:.5rem .9rem;font-size:.82rem;width:100%}
+.pc-compare-note{font-size:.75rem;color:var(--muted);margin:0 0 2rem}
+
+/* 箇条書きの種類 */
+.pc-list{list-style:none;padding:.9rem 1rem .9rem 1rem;margin:.4rem 0 1.4rem;border-radius:12px;
+  background:var(--surface)}
+.pc-list li{position:relative;padding-left:1.7rem;margin:.35rem 0}
+.pc-list li::before{position:absolute;left:0;top:.05rem;width:1.25rem;height:1.25rem;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#fff}
+.pc-list--fit li::before{content:"✓";background:var(--brand)}
+.pc-list--pros li::before{content:"+";background:#2f9e44}
+.pc-list--cons{background:#fff8f0}
+.pc-list--cons li::before{content:"!";background:#e67700}
+.pc-list--spec{background:#fff;border:1px solid var(--border)}
+.pc-list--spec li::before{content:"";width:.45rem;height:.45rem;top:.65rem;left:.4rem;background:var(--muted)}
+
+/* よくある質問 */
+h3.pc-q{display:flex;gap:.6rem;align-items:flex-start;font-size:1rem}
+h3.pc-q span{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.7rem;
+  height:1.7rem;border-radius:50%;background:var(--brand);color:#fff;font-size:.85rem}
+
+@media (max-width:640px){
+  .pc-top-body{grid-template-columns:104px 1fr;gap:.85rem;padding:.9rem}
+  .pc-card{grid-template-columns:1fr;padding:1rem}
+  .pc-thumb{max-width:260px;width:100%;margin:0 auto}
+  .pc-buy{width:100%}
+  .pc-top .pc-buy{width:100%}
+  .pc-price-num{font-size:1.2rem}
+}

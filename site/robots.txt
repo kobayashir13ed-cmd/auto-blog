@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /pick/
 
 Sitemap: https://mekikilab.com/sitemap.xml
