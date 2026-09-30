@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "薄いのに暖かい防寒インナーは何で見分ける?厚みの数値データがない中で、素材構成・伸縮性・対応部位の記載から3商品を比較しました。",
   "created_at": "2026-09-30",
-  "published_at": ""
+  "published_at": "2026-09-30"
 }
 -->
 
