@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "賃貸の窓結露、貼る・置くどちらが合う？窓ガラスの種類と原状回復のしやすさから選べる3商品の比較記事です。",
   "created_at": "2026-10-01",
-  "published_at": ""
+  "published_at": "2026-10-01"
 }
 -->
 
