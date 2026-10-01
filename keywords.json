@@ -593,7 +593,8 @@
       "max_price": 12000,
       "hits": 4,
       "peak_month": 1,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-01"
     },
     {
       "keyword": "換気扇 油汚れ 落ちない 大掃除",
