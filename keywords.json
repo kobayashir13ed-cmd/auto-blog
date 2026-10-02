@@ -606,7 +606,8 @@
       "max_price": 8000,
       "hits": 4,
       "peak_month": 12,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-02"
     },
     {
       "keyword": "静電気 冬 服 パチパチ 対策",
