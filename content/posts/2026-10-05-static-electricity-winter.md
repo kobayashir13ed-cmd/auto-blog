@@ -7,7 +7,7 @@
   "category": "seasonal",
   "description": "静電気対策グッズは実は「髪用」が中心という実情を正直に解説。髪のパチパチ・まとわりつき向け3商品を比較表と仕様データで紹介します。",
   "created_at": "2026-10-05",
-  "published_at": ""
+  "published_at": "2026-10-05"
 }
 -->
 
