@@ -7,7 +7,7 @@
   "category": "appliance",
   "description": "空気清浄機のフィルター交換費用、高いと感じていませんか。候補商品の価格帯と、cado用フィルター2商品の違いを整理しました。",
   "created_at": "2026-10-06",
-  "published_at": ""
+  "published_at": "2026-10-06"
 }
 -->
 
