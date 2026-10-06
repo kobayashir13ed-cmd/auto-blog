@@ -516,7 +516,8 @@
       "max_price": 60000,
       "hits": 4,
       "peak_month": 2,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-06"
     },
     {
       "keyword": "暖房 乾燥 喉 痛い 寝室",
