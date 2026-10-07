@@ -29,7 +29,8 @@
       "min_price": 2000,
       "max_price": 15000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-07"
     },
     {
       "keyword": "キーボード 静音 職場 打鍵音",
