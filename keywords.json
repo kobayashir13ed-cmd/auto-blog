@@ -41,7 +41,8 @@
       "min_price": 3000,
       "max_price": 25000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-08"
     },
     {
       "keyword": "USBハブ 給電不足 認識しない",
