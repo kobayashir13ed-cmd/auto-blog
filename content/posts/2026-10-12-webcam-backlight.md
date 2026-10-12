@@ -7,7 +7,7 @@
   "category": "gadget",
   "description": "オンライン会議で逆光により顔が暗く映る悩みに向けて、Webカメラ3台を価格・評価・仕様のデータで比較します。自動光補正の違いも整理しました。",
   "created_at": "2026-10-12",
-  "published_at": ""
+  "published_at": "2026-10-12"
 }
 -->
 
