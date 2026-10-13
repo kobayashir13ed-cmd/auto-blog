@@ -77,7 +77,8 @@
       "min_price": 8000,
       "max_price": 20000,
       "hits": 4,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-10-13"
     },
     {
       "keyword": "デスク 奥行き60cm 狭い 対策",
