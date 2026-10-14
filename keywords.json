@@ -89,7 +89,8 @@
       "min_price": 2000,
       "max_price": 25000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-14"
     },
     {
       "keyword": "本棚 地震 倒れない 固定",
