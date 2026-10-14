@@ -7,7 +7,7 @@
   "category": "furniture",
   "description": "デスクの奥行き60cmが狭いと感じたら、モニター台で手前のスペースを確保する方法があります。使い方別に3商品を比較して紹介します。",
   "created_at": "2026-10-14",
-  "published_at": ""
+  "published_at": "2026-10-14"
 }
 -->
 
