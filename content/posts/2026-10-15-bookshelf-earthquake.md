@@ -7,7 +7,7 @@
   "category": "furniture",
   "description": "本棚の地震対策に使う突っ張り棒を3商品比較。天井までの隙間の測り方や、1台用・複数台用の選び方も分かります。",
   "created_at": "2026-10-15",
-  "published_at": ""
+  "published_at": "2026-10-15"
 }
 -->
 

@@ -101,7 +101,7 @@
       "min_price": 1000,
       "max_price": 10000,
       "hits": 4,
-      "status": "drafted",
+      "status": "published",
       "updated_at": "2026-10-15"
     },
     {
