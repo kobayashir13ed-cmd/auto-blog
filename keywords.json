@@ -101,7 +101,8 @@
       "min_price": 1000,
       "max_price": 10000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-15"
     },
     {
       "keyword": "デスク 配線 隠す 後付け",
