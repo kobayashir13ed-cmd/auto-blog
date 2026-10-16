@@ -113,7 +113,8 @@
       "min_price": 1000,
       "max_price": 12000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-16"
     },
     {
       "keyword": "電気ケトル 一人暮らし 小さい 静か",
