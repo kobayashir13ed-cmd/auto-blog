@@ -7,7 +7,7 @@
   "category": "appliance",
   "description": "一人暮らし向け電気ケトル3台を容量・サイズ・安全機能で比較。静かさの記載がない事実も正直に紹介し、自分に合う1台を選べる記事です。",
   "created_at": "2026-10-19",
-  "published_at": ""
+  "published_at": "2026-10-19"
 }
 -->
 
