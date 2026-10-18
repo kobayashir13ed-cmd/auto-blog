@@ -125,7 +125,8 @@
       "min_price": 2000,
       "max_price": 15000,
       "hits": 4,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-19"
     },
     {
       "keyword": "加湿器 手入れ 楽 カビ",
