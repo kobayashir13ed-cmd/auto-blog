@@ -199,6 +199,7 @@ auto-blog/
 ├── .github/workflows/
 │   ├── draft.yml            平日の朝：在庫補充 → 商品選択メール
 │   ├── write.yml            商品が選ばれたら：5人の担当が執筆 → 公開（または保留）
+│   ├── insights.yml         毎週月曜の朝：記事の成績を分析し、書き方の指示を更新（content/insights.md）
 │   ├── publish.yml          承認を受けて公開
 │   ├── deploy.yml           サイトだけ再生成（手動）
 │   └── research.yml         週次：Search Console分析 → レポート

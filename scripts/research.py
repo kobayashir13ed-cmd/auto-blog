@@ -32,7 +32,7 @@ import json
 import re
 import sys
 
-from . import claude_api, common
+from . import claude_api, common, insights
 from .kw import gsc, market
 
 CANDIDATES_PATH = common.ROOT / "candidates.json"
@@ -294,6 +294,9 @@ def _build_generate_prompt(count: int, categories: list[dict],
    悪い例: 「モニターアーム おすすめ」「加湿器 比較」← 競合が強すぎて勝てない
 2. 商品名やブランド名を入れないこと。
 3. 楽天市場で実際に商品が出てくるジャンルにすること。
+
+【これまでの記事の成績から分かったこと】
+{insights.for_prompt("keyword")}
 
 【既に登録済みのキーワード】これらと内容が重なるものは避けてください。
 {avoid}

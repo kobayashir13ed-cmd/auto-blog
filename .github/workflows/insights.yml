@@ -1,0 +1,56 @@
+name: 記事の成績を分析する
+
+# 週に1回、Search Console の実測値（記事ごとの表示回数・掲載順位・実際に検索された言葉）と
+# 記事の特徴（字数・見出し・タイトル・FAQの数など）を突き合わせ、
+# 「伸びている記事の特徴」と「次の記事への指示」を content/insights.md にまとめる。
+# 記事を書く担当（企画・ライター）とキーワードの補充は、このメモを読んでから仕事をする。
+
+on:
+  schedule:
+    # 毎週月曜の朝6時（日本時間）。朝の商品選択メール（7時）より前に更新しておく。
+    # cron は UTC なので -9時間して日曜21:00 になる。
+    - cron: "0 21 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: 記事の成績を分析する
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
+        run: python -m scripts.insights
+
+      - name: 分析結果をコミット
+        run: |
+          git config user.name "auto-blog"
+          git config user.email "actions@github.com"
+          git add content/insights.json content/insights.md 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "分析結果の変更はありません。"
+            exit 0
+          fi
+          git commit -m "insights: 記事の成績を分析"
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
+            git pull --rebase
+          done
+          exit 1
+
+      - name: 分析結果を表示する
+        if: always()
+        run: cat content/insights.md 2>/dev/null || echo "分析結果はまだありません。"

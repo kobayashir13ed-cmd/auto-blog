@@ -48,6 +48,8 @@ class Row:
     impressions: int
     ctr: float
     position: float
+    # 複数の切り口（例: ["page", "query"]）で問い合わせたときの全キー。key はその先頭
+    keys: tuple = ()
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -150,6 +152,7 @@ def query(
             impressions=int(r.get("impressions", 0)),
             ctr=round(float(r.get("ctr", 0)) * 100, 2),
             position=round(float(r.get("position", 0)), 1),
+            keys=tuple(r["keys"]),
         )
         for r in payload.get("rows", [])
     ]
