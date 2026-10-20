@@ -150,7 +150,8 @@
       "min_price": 5000,
       "max_price": 50000,
       "hits": 4,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-10-20"
     },
     {
       "keyword": "花粉 対策グッズ 寝室 小さい",
