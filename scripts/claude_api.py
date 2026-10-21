@@ -114,3 +114,71 @@ def complete(
             raise RuntimeError(f"Claude APIに接続できません: {last_error}") from exc
 
     raise RuntimeError(f"Claude APIの呼び出しに失敗しました: {last_error}")
+
+
+# --------------------------------------------------------------------------
+# ウェブ検索つきの呼び出し（メーカー公式サイトの仕様確認に使う）
+# --------------------------------------------------------------------------
+
+def complete_with_web(
+    prompt: str,
+    api_key: str,
+    model: str,
+    tools: list[dict],
+    betas: list[str] | None = None,
+    max_tokens: int = 16000,
+    system: str = "",
+    timeout: int = 600,
+    max_turns: int = 4,
+) -> tuple[str, dict]:
+    """Claude にウェブ検索・ページ取得の道具を持たせて答えさせる。
+
+    検索と取得は Anthropic のサーバー側で行われる（このプログラムが直接サイトを読むのではない）。
+    返り値は (最後の本文テキスト, 実際に取得したページ {URL: 本文テキスト})。
+    取得したページの一覧は、AIが「見ていないページを出典に書く」ことを防ぐ照合に使う。
+
+    検索が長引くと stop_reason が pause_turn で返るので、そのまま続きを頼む。
+    """
+    headers = {
+        "content-type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": API_VERSION,
+    }
+    if betas:
+        headers["anthropic-beta"] = ",".join(betas)
+    messages: list[dict] = [{"role": "user", "content": prompt}]
+    fetched: dict[str, str] = {}
+    so_far: list[dict] = []          # 途中で止まった場合に、ここまでの応答を渡して続けてもらう
+    for _ in range(max_turns):
+        payload: dict = {"model": model, "max_tokens": max_tokens,
+                         "messages": messages, "tools": tools}
+        if system:
+            payload["system"] = system
+        request = urllib.request.Request(
+            ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:400]
+            raise RuntimeError(f"ウェブ検索つきの呼び出しに失敗しました（HTTP {exc.code}）: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"Claude APIに接続できません: {exc.reason}") from exc
+
+        blocks = body.get("content", [])
+        so_far += blocks
+        for b in blocks:
+            if b.get("type") != "web_fetch_tool_result":
+                continue
+            result = b.get("content") or {}
+            url = result.get("url")
+            if result.get("type") != "web_fetch_result" or not url:
+                continue
+            source = ((result.get("content") or {}).get("source") or {})
+            fetched[url] = source.get("data", "") if source.get("type") == "text" else ""
+        if body.get("stop_reason") != "pause_turn":
+            break
+        messages = messages[:1] + [{"role": "assistant", "content": so_far}]
+    text = "".join(b.get("text", "") for b in so_far if b.get("type") == "text")
+    return text, fetched

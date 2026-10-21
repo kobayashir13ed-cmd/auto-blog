@@ -62,5 +62,7 @@
   "smtp": {
     "host": "smtp.gmail.com",
     "port": 587
-  }
+  },
+  "_official_specs_note": "true にすると、記事を書く前にメーカー公式サイトの製品ページを検索して仕様を確かめ、出典つきで記事に使います（Claude APIのウェブ検索を使用。Claude Console で組織の管理者がウェブ検索を有効にしている必要があります）。レビューや価格は取りません。",
+  "official_specs": true
 }

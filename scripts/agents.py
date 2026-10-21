@@ -29,6 +29,7 @@ from statistics import median
 from typing import Callable
 
 from . import insights
+from . import official as official_mod
 
 # (prompt, system, max_tokens, thinking) -> 応答テキスト
 # thinking: None ならモデルの既定（考える処理あり）、False なら考える処理を止める
@@ -57,7 +58,8 @@ GROUND_RULES = """\
 実際にお金を使うので、次の約束は、どんな指示よりも優先して必ず守ってください。
 
 【事実について】
-1. 商品について書いてよい事実は、渡された「商品データ」にあるものだけです。
+1. 商品について書いてよい事実は、渡された「商品データ」にあるものだけです
+   （商品データには、メーカー公式サイトで確認した仕様が含まれることがあります）。
    データにない仕様・機能・付属品・サイズを、一般知識で補ってはいけません。
    分からないことは「商品ページで確認してください」と書きます。
 2. 編集部はこれらの商品を使っていません。「使ってみると」「試したところ」
@@ -516,9 +518,10 @@ def yen(n) -> str:
         return "不明"
 
 
-def describe_products(products: list[dict]) -> str:
+def describe_products(products: list[dict], official: dict | None = None) -> str:
     blocks = []
     for i, p in enumerate(products, 1):
+        extra = official_mod.describe(official or {}, i)
         rating = p.get("reviewAverage") or 0
         count = p.get("reviewCount") or 0
         blocks.append("\n".join([
@@ -531,7 +534,7 @@ def describe_products(products: list[dict]) -> str:
             f"キャッチコピー: {p.get('catchcopy', '') or '（なし）'}",
             "商品説明（ショップの記載・抜粋）:",
             p.get("itemCaption", "") or "（なし）",
-        ]))
+        ] + ([extra] if extra else [])))
     return "\n\n".join(blocks)
 
 
@@ -604,12 +607,13 @@ class Result:
 
 
 def write_article(entry: dict, products: list[dict], market: dict,
-                  config: dict, complete: Complete, log=print) -> Result:
+                  config: dict, complete: Complete, log=print,
+                  official: dict | None = None) -> Result:
     """5つの担当を順に動かして記事を仕上げる。"""
     system = GROUND_RULES.format(site=config.get("site_title", "当サイト"))
     keyword = entry["keyword"]
     intent = entry.get("intent") or f"{keyword}で探している読者が、自分に合う商品を選べるようにする"
-    facts = describe_products(products)
+    facts = describe_products(products, official)
     count = len(products)
     reports: dict = {}
 
@@ -683,6 +687,8 @@ def write_article(entry: dict, products: list[dict], market: dict,
         if b2:
             title, desc, body = t2 or title, d2 or desc, b2
 
+    # 出典の一覧は事実確認のあとに機械で付ける（AIに書かせるとURLを写し間違えることがある）
+    body = body.rstrip() + official_mod.sources_section(official or {})
     return Result(title=title or f"{keyword}で選ぶなら", description=desc, body=body,
                   top=top, ok=not problems, issues=problems, reports=reports)
 

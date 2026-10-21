@@ -24,7 +24,7 @@ import sys
 from html import unescape
 from urllib.parse import urlparse
 
-from . import agents, build_site, claude_api, common
+from . import agents, build_site, claude_api, common, official
 from .hikaku import widget
 
 REPORTS = common.CONTENT / "reports"
@@ -123,7 +123,10 @@ def save_report(draft_id: str, result: agents.Result, products: list[dict]) -> N
                        ("edit", "編集長の講評"), ("edit_2", "編集長の講評（差し戻し後）")):
         if r.get(key):
             parts += ["", f"## {label}", "", str(r[key]).strip()]
-    for key in ("check_1", "check_2"):
+    if r.get("official"):
+        parts += ["", "## 仕様確認（メーカー公式サイト）", "", "```json",
+                  json.dumps(r["official"], ensure_ascii=False, indent=2), "```"]
+    for key in ("check_1", "check_2", "check_3"):
         if r.get(key):
             parts += ["", f"## 事実確認（{key[-1]}回目）", "", "```json",
                       json.dumps(r[key], ensure_ascii=False, indent=2), "```"]
@@ -278,7 +281,18 @@ def main(argv: list[str] | None = None) -> None:
                                        max_tokens=max_tokens, system=system, timeout=600,
                                        thinking=thinking)
 
-    result = agents.write_article(entry, products, market, config, complete)
+    print("  [0/5] 仕様確認担当がメーカー公式サイトを確認しています")
+    if args.mock:
+        official_specs = {}
+    else:
+        def call_web(prompt: str, tool_defs: list, betas: list):
+            return claude_api.complete_with_web(prompt=prompt, api_key=api_key, model=model,
+                                                tools=tool_defs, betas=betas)
+        official_specs = official.lookup(products, config, call_web)
+
+    result = agents.write_article(entry, products, market, config, complete,
+                                  official=official_specs)
+    result.reports["official"] = official_specs
 
     today = common.today_str()
     draft_id = existing.id if existing else f"{today}-{slug}"
