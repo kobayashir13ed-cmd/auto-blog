@@ -213,7 +213,8 @@
       "max_price": 30000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-10-22"
     },
     {
       "keyword": "外付けSSD 動画編集 転送 遅い",
