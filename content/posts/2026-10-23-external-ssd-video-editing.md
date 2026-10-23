@@ -7,7 +7,7 @@
   "category": "gadget",
   "description": "外付けSSDの転送が遅いと感じる原因はUSB規格にあるかもしれません。動画編集向け3商品をGen2x2・Gen2・Gen1の規格、速度、容量、耐衝撃、保証で比較し、選び方を解説します。",
   "created_at": "2026-10-23",
-  "published_at": ""
+  "published_at": "2026-10-23"
 }
 -->
 
