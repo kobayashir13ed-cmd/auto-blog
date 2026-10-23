@@ -226,7 +226,8 @@
       "max_price": 50000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-23"
     },
     {
       "keyword": "ノートパソコン スタンド 首 疲れ",
