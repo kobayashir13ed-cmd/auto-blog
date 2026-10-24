@@ -8,6 +8,17 @@ name: 選ばれた商品で記事を書いて公開する
 on:
   repository_dispatch:
     types: [write-article]
+  # 公開済みの記事から一部の商品を外して作り直す（手動）
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "作り直す記事のslug（URLの末尾。例: earphone-ear-pain）"
+        required: true
+        type: string
+      drop:
+        description: "外す商品の番号（例: 3 や 2,3）"
+        required: true
+        type: string
 
 # 同時に2本走ると、記事一覧やキーワードの書き換えがぶつかる。1本ずつ順番に処理する
 concurrency:
@@ -38,7 +49,15 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PAYLOAD: ${{ toJson(github.event.client_payload) }}
-        run: python -m scripts.write
+          # 手入力の値はシェルに直接埋め込まず、環境変数で渡す
+          REWRITE_SLUG: ${{ inputs.slug }}
+          REWRITE_DROP: ${{ inputs.drop }}
+        run: |
+          if [ -n "$REWRITE_SLUG" ]; then
+            python -m scripts.write --from-post "$REWRITE_SLUG" --drop "$REWRITE_DROP"
+          else
+            python -m scripts.write
+          fi
 
       - name: 変更をコミット
         if: steps.write.outputs.result == 'published' || steps.write.outputs.result == 'needs_review'

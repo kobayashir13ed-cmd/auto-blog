@@ -709,6 +709,66 @@ def market_summary(market: dict) -> dict:
     return out
 
 
+RELEVANCE_PROMPT = """\
+あなたは商品紹介サイトの「確認担当」です。
+記事のキーワードと、紹介しようとしている商品の名前を渡します。
+キーワードで検索した人が探している種類の商品ではないもの（例：キーワードが
+「ワイヤレスイヤホン」なのに、CDプレーヤーやスピーカー、ケース、交換用パーツなど）を見つけてください。
+
+■ 記事のキーワード
+{keyword}
+
+■ 商品
+{names}
+
+━━━━━━━━━━━━━━━━━━━━
+・商品名に宣伝の言葉が多く入っていても、本体が何の商品かで判断する。
+・同じ種類の商品の中での違い（価格帯・形・機能）は問題にしない。
+・迷う場合は「関係あり」とする。
+
+■ 出力（JSONのみ）
+{{"unrelated": [{{"n": 商品番号, "reason": "何の商品で、なぜ外すか"}}]}}
+すべて関係あれば {{"unrelated": []}} だけを返します。
+"""
+
+
+def check_relevance(keyword: str, products: list[dict], complete: Complete,
+                    log=print) -> tuple[list[dict], list[str], list[str]]:
+    """キーワードと関係のない商品を外す。
+
+    返り値は (残す商品, 外した商品の説明, 保留にすべき問題)。
+    外すと2個未満になる場合は外さず、運営者に確認してもらう。
+    確認自体に失敗したときは、何も外さずに先へ進む（記事作りを止めない）。
+    """
+    names = "\n".join(f"[商品{i}] {p.get('itemName', '')[:150]}" for i, p in enumerate(products, 1))
+    try:
+        text = complete(RELEVANCE_PROMPT.format(keyword=keyword, names=names),
+                        "", 8000, None)
+        start, end = text.find("{"), text.rfind("}")
+        data = json.loads(text[start:end + 1]) if start != -1 and end != -1 else {}
+    except Exception as exc:                        # noqa: BLE001
+        log(f"        関連性の確認をできませんでした: {str(exc)[:120]}")
+        return products, [], []
+    drop: dict[int, str] = {}
+    for item in data.get("unrelated") or [] if isinstance(data, dict) else []:
+        try:
+            n = int(item.get("n"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if 1 <= n <= len(products):
+            drop[n] = str(item.get("reason") or "")[:120]
+    if not drop:
+        return products, [], []
+    notes = [f"商品{n}（{products[n - 1].get('itemName', '')[:30]}…）：{r}" for n, r in sorted(drop.items())]
+    kept = [p for i, p in enumerate(products, 1) if i not in drop]
+    if len(kept) < 2:
+        log("        キーワードと関係のない商品がありますが、外すと2個未満になるので保留にします")
+        return products, [], ["キーワードと関係のない商品が含まれている可能性があります：" + "／".join(notes)]
+    for note in notes:
+        log(f"        外しました：{note}")
+    return kept, notes, []
+
+
 def fallback_market(products: list[dict]) -> dict:
     """集計が届かなかったとき、選んだ商品だけで最低限の値を作る。"""
     prices = [int(p["itemPrice"]) for p in products if p.get("itemPrice")]

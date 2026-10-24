@@ -123,6 +123,8 @@ def save_report(draft_id: str, result: agents.Result, products: list[dict]) -> N
                        ("edit", "編集長の講評"), ("edit_2", "編集長の講評（差し戻し後）")):
         if r.get(key):
             parts += ["", f"## {label}", "", str(r[key]).strip()]
+    if r.get("dropped"):
+        parts += ["", "## キーワードと関係がないため外した商品", ""] + [f"- {d}" for d in r["dropped"]]
     if r.get("official"):
         parts += ["", "## 仕様確認（メーカー公式サイト）", "", "```json",
                   json.dumps(r["official"], ensure_ascii=False, indent=2), "```"]
@@ -218,7 +220,28 @@ def output(**values) -> None:
             fh.write(f"{key}={value}\n")
 
 
+def payload_from_post(slug: str, drop: str) -> dict:
+    """公開済みの記事の商品から、指定した番号を外して作り直すための依頼を組み立てる。
+
+    商品選択ページを通さずに「この商品だけ外して書き直したい」ときに使う。
+    """
+    post = common.find_post(slug)
+    if post is None or not post.products:
+        sys.exit(f"[エラー] 商品つきの公開済み記事 '{slug}' が見つかりません。")
+    try:
+        numbers = {int(x) for x in re.split(r"[,、\s]+", drop.strip()) if x}
+    except ValueError:
+        sys.exit(f"[エラー] 外す商品の番号が読めません: {drop!r}（例: 3 や 2,3）")
+    products = [p for i, p in enumerate(post.products, 1) if i not in numbers]
+    if len(products) < 2:
+        sys.exit("[エラー] 商品が2個未満になるので作り直せません。")
+    print(f"記事 {slug} から商品 {sorted(numbers)} を外して作り直します（残り{len(products)}個）")
+    return {"slug": slug, "products": products, "market": {}}
+
+
 def load_payload(args: argparse.Namespace) -> dict:
+    if args.from_post:
+        return payload_from_post(args.from_post, args.drop)
     if args.payload_file:
         return json.loads(open(args.payload_file, encoding="utf-8").read())
     raw = os.environ.get("PAYLOAD", "")
@@ -230,6 +253,9 @@ def load_payload(args: argparse.Namespace) -> dict:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="選ばれた商品で記事を書きます")
     parser.add_argument("--payload-file", default="")
+    parser.add_argument("--from-post", default="", metavar="SLUG",
+                        help="公開済みの記事の商品を使って作り直す")
+    parser.add_argument("--drop", default="", help="--from-post で外す商品の番号（例: 3 や 2,3）")
     parser.add_argument("--mock", action="store_true", help="APIを使わずに流れだけ確認する")
     parser.add_argument("--send-notice", default="", metavar="FILE",
                         help="書き終えたあとのお知らせメールだけを送る")
@@ -281,6 +307,9 @@ def main(argv: list[str] | None = None) -> None:
                                        max_tokens=max_tokens, system=system, timeout=600,
                                        thinking=thinking)
 
+    print("  [0/5] 確認担当が、キーワードと関係のない商品がないか確かめています")
+    products, dropped, hold = agents.check_relevance(entry["keyword"], products, complete)
+
     print("  [0/5] 仕様確認担当がメーカー公式サイトを確認しています")
     if args.mock:
         official_specs = {}
@@ -293,6 +322,11 @@ def main(argv: list[str] | None = None) -> None:
     result = agents.write_article(entry, products, market, config, complete,
                                   official=official_specs)
     result.reports["official"] = official_specs
+    if dropped:
+        result.reports["dropped"] = dropped
+    if hold:
+        result.issues = hold + result.issues
+        result.ok = False
 
     today = common.today_str()
     draft_id = existing.id if existing else f"{today}-{slug}"
