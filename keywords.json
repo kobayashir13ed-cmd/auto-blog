@@ -239,7 +239,8 @@
       "max_price": 20000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-26"
     },
     {
       "keyword": "充電器 ポート 足りない 同時充電",
