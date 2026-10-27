@@ -252,7 +252,8 @@
       "max_price": 20000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-10-27"
     },
     {
       "keyword": "マウスパッド 大きい デスク 滑り",
