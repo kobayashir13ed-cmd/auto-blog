@@ -265,7 +265,8 @@
       "max_price": 10000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-10-28"
     },
     {
       "keyword": "Type-Cケーブル 断線 しにくい 耐久",
