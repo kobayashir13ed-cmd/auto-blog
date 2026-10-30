@@ -291,7 +291,8 @@
       "max_price": 20000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-10-30"
     },
     {
       "keyword": "SDカード 一眼 連写 書き込み 追いつかない",
