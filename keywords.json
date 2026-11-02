@@ -162,7 +162,7 @@
       "min_price": 5000,
       "max_price": 40000,
       "hits": 4,
-      "status": "drafted",
+      "status": "published",
       "peak_month": 3,
       "updated_at": "2026-11-02"
     },
