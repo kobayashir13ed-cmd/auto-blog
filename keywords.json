@@ -305,7 +305,8 @@
       "max_price": 25000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-11-03"
     },
     {
       "keyword": "スマホスタンド 動画 角度 浅い",
