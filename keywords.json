@@ -318,7 +318,8 @@
       "max_price": 8000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-11-04"
     },
     {
       "keyword": "Wi-Fi 中継機 2階 電波 届かない",
