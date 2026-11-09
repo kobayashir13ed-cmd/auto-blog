@@ -370,7 +370,8 @@
       "max_price": 10000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-11-09"
     },
     {
       "keyword": "デスク 高さ 合わない 猫背",
