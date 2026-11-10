@@ -45,17 +45,30 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python -m scripts.research generate --min-stock 10 --count 12
 
+      # 検索の表示回数が目標（月100回など）を初めて超えたら、一度だけメールで知らせる
+      - name: 表示回数の目標達成を確かめる
+        if: ${{ !inputs.rewrite_all }}
+        continue-on-error: true
+        env:
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+        run: python -m scripts.milestone
+
       - name: 補充したキーワードをコミット
         if: ${{ !inputs.rewrite_all }}
         run: |
           git config user.name "auto-blog"
           git config user.email "actions@github.com"
           git add keywords.json
+          git add content/milestones.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "キーワードの変更はありません。"
             exit 0
           fi
-          git commit -m "keywords: 在庫を補充"
+          git commit -m "keywords/milestones: 在庫の補充と目標の記録"
           for i in 1 2 3; do
             if git push; then exit 0; fi
             echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
