@@ -383,7 +383,8 @@
       "max_price": 60000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-11-10"
     },
     {
       "keyword": "シューズラック 玄関 狭い 薄型",
