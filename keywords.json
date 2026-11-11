@@ -396,7 +396,8 @@
       "max_price": 25000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "published",
+      "updated_at": "2026-11-11"
     },
     {
       "keyword": "遮光カーテン 隙間 光 漏れる",
