@@ -409,7 +409,8 @@
       "max_price": 25000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-11-12"
     },
     {
       "keyword": "ベッド下 収納 ホコリ 掃除",
