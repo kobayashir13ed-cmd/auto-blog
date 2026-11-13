@@ -64,5 +64,18 @@
     "port": 587
   },
   "_official_specs_note": "true にすると、記事を書く前にメーカー公式サイトの製品ページを検索して仕様を確かめ、出典つきで記事に使います（Claude APIのウェブ検索を使用。Claude Console で組織の管理者がウェブ検索を有効にしている必要があります）。レビューや価格は取りません。",
-  "official_specs": true
+  "official_specs": true,
+  "_light_model_note": "整理や判定など軽い仕事（リサーチ・関係のない商品のチェック・メーカー公式サイトの仕様確認）に使う安いモデル。空なら agent_model と同じモデルを使う。",
+  "light_model": "claude-haiku-4-5-20251001",
+  "_prices_note": "API費用の目安を出すための料金表（100万トークンあたりのドル）。実際の請求額は Claude Console の利用状況で確認し、料金が違っていたらここを直してください。default は表にないモデルに使います。",
+  "prices": {
+    "default": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-haiku-4-5-20251001": {
+      "input": 1,
+      "output": 5
+    }
+  }
 }

@@ -102,12 +102,45 @@ def season_priority(entry: dict, month: int | None = None) -> int:
     return 3                           # 季節外れ。後回し
 
 
+def category_scores() -> dict[str, float]:
+    """カテゴリごとの「1記事・7日あたりの表示回数」。分析（content/insights.json）から読む。
+
+    公開から21日未満の記事は、まだ順位が付いていないので数えない。
+    分析がまだなければ空を返す（並び順に影響しない）。
+    """
+    try:
+        data = json.loads((CONTENT / "insights.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    sums: dict[str, list[float]] = {}
+    for a in data.get("articles", []):
+        if a.get("age_days", 0) >= 21 and a.get("category"):
+            sums.setdefault(a["category"], []).append(float(a.get("impressions_per_week") or 0))
+    return {c: round(sum(v) / len(v), 2) for c, v in sums.items() if v}
+
+
+def demand_penalty(entry: dict, scores: dict[str, float]) -> int:
+    """表示が出にくいカテゴリのキーワードを後回しにする。0なら優先、1なら後回し。
+
+    いちばん表示が出ているカテゴリの半分に届かないカテゴリは、書いても読まれにくい。
+    API費用を、読まれやすいテーマに先に使うための並べ替え。
+    """
+    if not scores:
+        return 0
+    best = max(scores.values())
+    if best <= 0:
+        return 0
+    return 0 if scores.get(entry.get("category", ""), 0) >= best / 2 else 1
+
+
 def pending_keywords(data: dict) -> list[dict]:
     """未着手のキーワードを、記事化すべき順に並べて返す。"""
     pending = [e for e in data.get("keywords", [])
                if e.get("status", "pending") == "pending"]
-    # sort は安定なので、優先度が同じものはファイルの並び順が保たれる
-    pending.sort(key=season_priority)
+    scores = category_scores()
+    # 季節の仕込みどきを最優先し、同じ優先度の中では読まれやすいカテゴリを先にする。
+    # sort は安定なので、それでも同じものはファイルの並び順が保たれる
+    pending.sort(key=lambda e: (season_priority(e), demand_penalty(e, scores)))
     return pending
 
 

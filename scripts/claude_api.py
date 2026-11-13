@@ -18,6 +18,35 @@ API_VERSION = "2023-06-01"
 # 出力の上限をこれ以上には広げない（費用と待ち時間の歯止め）
 MAX_TOKENS_CEILING = 64000
 
+# モデルごとの使用量（入力・出力・キャッシュ）。1回の実行で積み上げ、記事のレポートに費用の目安を残す
+USAGE: dict[str, dict[str, int]] = {}
+
+
+def _record(model: str, usage: dict) -> None:
+    u = USAGE.setdefault(model, {})
+    for key in ("input_tokens", "output_tokens",
+                "cache_creation_input_tokens", "cache_read_input_tokens"):
+        u[key] = u.get(key, 0) + int(usage.get(key) or 0)
+    for tool, n in (usage.get("server_tool_use") or {}).items():
+        u[tool] = u.get(tool, 0) + int(n or 0)
+
+
+def estimate_cost(prices: dict) -> tuple[float, list[str]]:
+    """USAGE と料金表（100万トークンあたりのドル）から費用の目安を出す。"""
+    total, lines = 0.0, []
+    for model, u in USAGE.items():
+        p = prices.get(model) or prices.get("default") or {"input": 3, "output": 15}
+        cost = (u.get("input_tokens", 0) * p["input"]
+                + u.get("cache_creation_input_tokens", 0) * p["input"] * 1.25
+                + u.get("cache_read_input_tokens", 0) * p["input"] * 0.1
+                + u.get("output_tokens", 0) * p["output"]) / 1_000_000
+        cost += u.get("web_search_requests", 0) * 0.01
+        total += cost
+        lines.append(f"{model}: 入力{u.get('input_tokens', 0):,} / キャッシュ読込"
+                     f"{u.get('cache_read_input_tokens', 0):,} / 出力{u.get('output_tokens', 0):,}"
+                     f" トークン、検索{u.get('web_search_requests', 0)}回 → 約${cost:.3f}")
+    return total, lines
+
 
 def complete(
     prompt: str,
@@ -44,7 +73,10 @@ def complete(
         "messages": [{"role": "user", "content": prompt}],
     }
     if system:
-        payload["system"] = system
+        # system は記事ごとに同じ（ルール＋商品データ）なので、キャッシュしておく。
+        # 同じ記事の2回目以降の依頼では、この部分の読み込み費用が約1割になる
+        payload["system"] = [{"type": "text", "text": system,
+                              "cache_control": {"type": "ephemeral"}}]
     if thinking is False:
         payload["thinking"] = {"type": "disabled"}
 
@@ -64,6 +96,7 @@ def complete(
         try:
             with urllib.request.urlopen(request, timeout=timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
+            _record(model, body.get("usage") or {})
             blocks = body.get("content", [])
             text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
             stop = body.get("stop_reason", "")
@@ -166,6 +199,7 @@ def complete_with_web(
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Claude APIに接続できません: {exc.reason}") from exc
 
+        _record(model, body.get("usage") or {})
         blocks = body.get("content", [])
         so_far += blocks
         for b in blocks:

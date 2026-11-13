@@ -83,10 +83,11 @@ SPEC_PROMPT = """\
 def tools(config: dict) -> tuple[list[dict], list[str]]:
     conf = {**DEFAULT_TOOLS, **(config.get("web_tools") or {})}
     return [
-        {"type": conf["search"], "name": "web_search", "max_uses": 8,
+        {"type": conf["search"], "name": "web_search", "max_uses": 6,
          "blocked_domains": BLOCKED_DOMAINS},
-        {"type": conf["fetch"], "name": "web_fetch", "max_uses": 8,
-         "blocked_domains": BLOCKED_DOMAINS, "max_content_tokens": 20000},
+        # 取得したページはそのまま入力として課金される。製品ページの仕様欄なら1万トークンで足りる
+        {"type": conf["fetch"], "name": "web_fetch", "max_uses": 5,
+         "blocked_domains": BLOCKED_DOMAINS, "max_content_tokens": 10000},
     ], list(conf.get("betas") or [])
 
 

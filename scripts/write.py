@@ -123,6 +123,9 @@ def save_report(draft_id: str, result: agents.Result, products: list[dict]) -> N
                        ("edit", "編集長の講評"), ("edit_2", "編集長の講評（差し戻し後）")):
         if r.get(key):
             parts += ["", f"## {label}", "", str(r[key]).strip()]
+    if r.get("cost"):
+        parts += ["", "## API費用の目安", "", f"- 合計 約${r['cost']['usd']}"] + \
+                 [f"- {line}" for line in r["cost"]["detail"]]
     if r.get("dropped"):
         parts += ["", "## キーワードと関係がないため外した商品", ""] + [f"- {d}" for d in r["dropped"]]
     if r.get("official"):
@@ -161,7 +164,7 @@ def mock_complete(products: list[dict]):
         filler = "比較の軸をそろえて読むと、自分に合う商品が見えてきます。" * 160
         return "\n\n".join(sections[:3] + [filler] + sections[3:])
 
-    def complete(prompt: str, system: str, max_tokens: int, thinking=None) -> str:
+    def complete(prompt: str, system: str, max_tokens: int, thinking=None, light=False) -> str:
         if "「リサーチ担当」" in prompt:
             return "①【読者の状況】（推測）置き場所に困っている\n②【比較の軸】…"
         if "「企画担当」" in prompt:
@@ -301,9 +304,13 @@ def main(argv: list[str] | None = None) -> None:
         api_key = common.env("ANTHROPIC_API_KEY")
         model = config.get("agent_model") or config.get("model", "claude-sonnet-5")
 
-        def complete(prompt: str, system: str, max_tokens: int, thinking=None) -> str:
+        light_model = config.get("light_model") or model
+
+        def complete(prompt: str, system: str, max_tokens: int, thinking=None,
+                     light: bool = False) -> str:
             # 長い本文は生成に数分かかるので、待ち時間を長めに取る
-            return claude_api.complete(prompt=prompt, api_key=api_key, model=model,
+            return claude_api.complete(prompt=prompt, api_key=api_key,
+                                       model=light_model if light else model,
                                        max_tokens=max_tokens, system=system, timeout=600,
                                        thinking=thinking)
 
@@ -315,13 +322,17 @@ def main(argv: list[str] | None = None) -> None:
         official_specs = {}
     else:
         def call_web(prompt: str, tool_defs: list, betas: list):
-            return claude_api.complete_with_web(prompt=prompt, api_key=api_key, model=model,
+            return claude_api.complete_with_web(prompt=prompt, api_key=api_key, model=light_model,
                                                 tools=tool_defs, betas=betas)
         official_specs = official.lookup(products, config, call_web)
 
     result = agents.write_article(entry, products, market, config, complete,
                                   official=official_specs)
     result.reports["official"] = official_specs
+    cost, cost_lines = claude_api.estimate_cost(config.get("prices") or {})
+    if cost_lines:
+        result.reports["cost"] = {"usd": round(cost, 3), "detail": cost_lines}
+        print(f"  この記事のAPI費用の目安：約${cost:.2f}")
     if dropped:
         result.reports["dropped"] = dropped
     if hold:

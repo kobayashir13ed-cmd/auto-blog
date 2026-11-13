@@ -33,19 +33,29 @@ from . import official as official_mod
 
 # (prompt, system, max_tokens, thinking) -> 応答テキスト
 # thinking: None ならモデルの既定（考える処理あり）、False なら考える処理を止める
-Complete = Callable[[str, str, int, "bool | None"], str]
+Complete = Callable[..., str]
+# complete(prompt, system, max_tokens, thinking, light=False)
+#   light=True … 整理や判定など軽い仕事。config の light_model（安いモデル）を使う
 
 # 担当ごとの出力上限と、考える処理を使うか。
 # 新しいモデルは考えた分も上限に数えるため、判断が中心の担当には余裕を持たせる。
 # 長い本文を書く担当は、判断は企画書で済んでいるので考える処理を止め、時間と費用を抑える。
 BUDGET = {
+    # リサーチは事実の整理なので、安いモデルで十分（LIGHT_ROLES）
     "research": (16000, None),
     "plan": (16000, None),
     "writer": (32000, False),
     "editor": (36000, False),
     "check": (16000, None),
     "fix": (32000, False),
+    # 指摘箇所だけの差し替え案を出す。記事全体を書き直さないので出力が小さい
+    "patch": (8000, False),
 }
+LIGHT_ROLES = {"research"}
+
+
+def _light(role: str) -> dict:
+    return {"light": True} if role in LIGHT_ROLES else {}
 
 
 # --------------------------------------------------------------------------
@@ -451,6 +461,59 @@ FIX_PROMPT = """\
 """
 
 
+PATCH_PROMPT = """\
+あなたは「校正担当」です。事実確認で指摘された箇所だけを直します。
+記事全体は書き直さず、直す文の「差し替え案」だけを出してください。
+
+■ 候補全体の集計データ
+{market}
+
+■ 指摘（すべて直すこと）
+{problems}
+
+■ 記事
+{article}
+
+━━━━━━━━━━━━━━━━━━━━
+■ 直し方
+━━━━━━━━━━━━━━━━━━━━
+・old には、記事の中の直したい部分を、一字一句そのまま写す（1文か、文の一部）。
+  記事の中で1か所にしか出てこない長さにすること。
+・new には、指摘の「→」に沿って最小限に直した文を書く。削るだけなら空文字。
+・裏づけのない内容は、言い換えるより削る。新しい説明を書き足さない。
+・<!--...--> の印は消さない・動かさない。
+
+■ 出力（JSONのみ）
+{{"edits": [{{"old": "記事の中の文をそのまま", "new": "直した文"}}]}}
+"""
+
+
+def apply_edits(title: str, desc: str, body: str, text: str,
+                log=print) -> tuple[str, str, str, int]:
+    """差し替え案を適用する。old が1か所にだけ見つかるものだけを使う。"""
+    start, end = text.find("{"), text.rfind("}")
+    try:
+        edits = json.loads(text[start:end + 1]).get("edits") or []
+    except (ValueError, AttributeError):
+        return title, desc, body, 0
+    applied = 0
+    for e in edits:
+        if not isinstance(e, dict):
+            continue
+        old, new = str(e.get("old") or ""), str(e.get("new") or "")
+        if len(old) < 4 or "<!--" in old and "<!--" not in new:
+            continue
+        if title.count(old) == 1:
+            title = title.replace(old, new); applied += 1
+        elif desc.count(old) == 1:
+            desc = desc.replace(old, new); applied += 1
+        elif body.count(old) == 1:
+            body = body.replace(old, new); applied += 1
+        else:
+            log(f"        差し替え先が見つからないため飛ばしました：{old[:40]}")
+    return title, desc, body, applied
+
+
 # --------------------------------------------------------------------------
 # 機械的な検査（AIに頼らず確実に見られるもの）
 # --------------------------------------------------------------------------
@@ -610,17 +673,22 @@ def write_article(entry: dict, products: list[dict], market: dict,
                   config: dict, complete: Complete, log=print,
                   official: dict | None = None) -> Result:
     """5つの担当を順に動かして記事を仕上げる。"""
-    system = GROUND_RULES.format(site=config.get("site_title", "当サイト"))
     keyword = entry["keyword"]
     intent = entry.get("intent") or f"{keyword}で探している読者が、自分に合う商品を選べるようにする"
-    facts = describe_products(products, official)
+    # 商品データは全担当が使う。毎回の依頼文に埋め込まず、共通の前置き（system）に1回だけ置き、
+    # APIのキャッシュで2回目以降の読み込みを安くする
+    system = (GROUND_RULES.format(site=config.get("site_title", "当サイト"))
+              + "\n\n━━━━━━━━━━━━━━━━━━━━\n■ この記事で扱う商品データ（全担当共通）\n"
+              "━━━━━━━━━━━━━━━━━━━━\n" + describe_products(products, official))
+    facts = "（前置きの「この記事で扱う商品データ」を参照してください）"
     count = len(products)
     reports: dict = {}
 
     log("  [1/5] リサーチ担当が商品データを整理しています")
     research = complete(RESEARCH_PROMPT.format(
         keyword=keyword, intent=intent, market=describe_market(market),
-        sampled=market.get("sampled", "数十"), products=facts), system, *BUDGET["research"])
+        sampled=market.get("sampled", "数十"), products=facts), system, *BUDGET["research"],
+        **_light("research"))
     reports["research"] = research
 
     log("  [2/5] 企画担当が構成を決めています")
@@ -673,6 +741,18 @@ def write_article(entry: dict, products: list[dict], market: dict,
         if not problems or attempt == 3:
             break
         log(f"        問題が{len(problems)}件あったので校正担当が直します")
+        # 字数不足以外は、指摘箇所の差し替えだけで直す（出力が小さく、ほかの箇所も壊さない）
+        if not any("字しかありません" in p for p in problems):
+            try:
+                out = complete(PATCH_PROMPT.format(
+                    market=market_text, problems="\n".join(f"- {p}" for p in problems),
+                    article=f"TITLE: {title}\nDESC: {desc}\n{body}"), system, *BUDGET["patch"])
+                title, desc, body, n = apply_edits(title, desc, body, out, log)
+                reports[f"fix_{attempt}"] = out
+                log(f"        {n}か所を差し替えました")
+                continue
+            except RuntimeError as exc:
+                log(f"        差し替えに失敗したので、全体の修正に切り替えます: {exc}")
         try:
             fixed = complete(FIX_PROMPT.format(
                 products=facts, market=market_text,
@@ -743,7 +823,7 @@ def check_relevance(keyword: str, products: list[dict], complete: Complete,
     names = "\n".join(f"[商品{i}] {p.get('itemName', '')[:150]}" for i, p in enumerate(products, 1))
     try:
         text = complete(RELEVANCE_PROMPT.format(keyword=keyword, names=names),
-                        "", 8000, None)
+                        "", 8000, None, light=True)
         start, end = text.find("{"), text.rfind("}")
         data = json.loads(text[start:end + 1]) if start != -1 and end != -1 else {}
     except Exception as exc:                        # noqa: BLE001

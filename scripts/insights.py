@@ -284,6 +284,12 @@ def for_prompt(part: str) -> str:
     if data.get("confidence") == "低":
         head += "\n※データが少ないため、以下は仮説です。ほかの指示や基本方針と矛盾する場合は、そちらを優先してください。"
     lines = [head] + [f"・{r}" for r in rules]
+    if part == "keyword":
+        scores = common.category_scores()
+        if scores:
+            ranked = "、".join(f"{c}={s}" for c, s in sorted(scores.items(), key=lambda x: -x[1]))
+            lines.append(f"・カテゴリ別の1記事・7日あたりの表示回数：{ranked}"
+                         "（数字の大きいカテゴリに、新しいキーワードの半分以上を割り当てる）")
     phrases = data.get("searched_phrases") or []
     if part in ("plan", "writer") and phrases:
         lines.append("・実際に検索された言い方（見出しやFAQの言葉選びの参考に）："
