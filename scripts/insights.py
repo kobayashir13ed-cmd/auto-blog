@@ -291,6 +291,9 @@ def for_prompt(part: str) -> str:
             lines.append(f"・カテゴリ別の1記事・7日あたりの表示回数：{ranked}"
                          "（数字の大きいカテゴリに、新しいキーワードの半分以上を割り当てる）")
     phrases = data.get("searched_phrases") or []
+    if part == "keyword" and phrases:
+        lines.append("・実際に検索された言い方（これに近い悩みで、まだ記事がないものを優先する）："
+                     + "／".join(phrases))
     if part in ("plan", "writer") and phrases:
         lines.append("・実際に検索された言い方（見出しやFAQの言葉選びの参考に）："
                      + "／".join(phrases))

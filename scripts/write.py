@@ -24,7 +24,7 @@ import sys
 from html import unescape
 from urllib.parse import urlparse
 
-from . import agents, build_site, claude_api, common, official
+from . import agents, build_site, claude_api, common, official, serp
 from .hikaku import widget
 
 REPORTS = common.CONTENT / "reports"
@@ -123,6 +123,9 @@ def save_report(draft_id: str, result: agents.Result, products: list[dict]) -> N
                        ("edit", "編集長の講評"), ("edit_2", "編集長の講評（差し戻し後）")):
         if r.get(key):
             parts += ["", f"## {label}", "", str(r[key]).strip()]
+    if r.get("serp"):
+        parts += ["", "## 競合分析（検索上位の記事）", "", "```json",
+                  json.dumps(r["serp"], ensure_ascii=False, indent=2), "```"]
     if r.get("cost"):
         parts += ["", "## API費用の目安", "", f"- 合計 約${r['cost']['usd']}"] + \
                  [f"- {line}" for line in r["cost"]["detail"]]
@@ -326,8 +329,12 @@ def main(argv: list[str] | None = None) -> None:
                                                 tools=tool_defs, betas=betas)
         official_specs = official.lookup(products, config, call_web)
 
+    print("  [0/5] 競合分析担当が、検索上位の記事を読んでいます")
+    serp_result = {} if args.mock else serp.analyze(entry["keyword"], config, call_web)
+
     result = agents.write_article(entry, products, market, config, complete,
-                                  official=official_specs)
+                                  official=official_specs, serp_text=serp.for_prompt(serp_result))
+    result.reports["serp"] = serp_result
     result.reports["official"] = official_specs
     cost, cost_lines = claude_api.estimate_cost(config.get("prices") or {})
     if cost_lines:

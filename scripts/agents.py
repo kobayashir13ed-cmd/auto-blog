@@ -171,6 +171,9 @@ PLAN_PROMPT = """\
 ■ これまでの記事の成績から分かったこと（分析担当のメモ）
 {insights}
 
+■ 同じキーワードで検索上位に出ている記事の分析（競合分析担当のメモ）
+{serp}
+
 ━━━━━━━━━━━━━━━━━━━━
 ■ 検索で伸びる記事の基本方針（すべての企画で守る）
 ━━━━━━━━━━━━━━━━━━━━
@@ -178,6 +181,8 @@ PLAN_PROMPT = """\
 ・答えは冒頭に置く。結論を後ろに引っぱる記事は読まれない。
 ・見出しだけを拾い読みしても、記事の答えが分かるようにする。
 ・このサイトにしかない材料（楽天の候補全体の集計、商品データの数値による比較）を必ず使う。
+・競合分析がある場合は、上位の記事がそろって扱っている論点をすべて押さえたうえで、
+  上位の記事に欠けている論点で差をつける。上位と同じことしか書いていない記事は勝てない。
 ・分析担当のメモは、確からしさが「低」のうちは仮説として扱い、この基本方針を優先する。
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -258,6 +263,9 @@ WRITER_PROMPT = """\
 
 ■ これまでの記事の成績から分かったこと（分析担当のメモ）
 {insights}
+
+■ 同じキーワードで検索上位に出ている記事の分析（競合分析担当のメモ）
+{serp}
 
 ━━━━━━━━━━━━━━━━━━━━
 ■ 検索で伸びる書き方（とても重要）
@@ -671,7 +679,7 @@ class Result:
 
 def write_article(entry: dict, products: list[dict], market: dict,
                   config: dict, complete: Complete, log=print,
-                  official: dict | None = None) -> Result:
+                  official: dict | None = None, serp_text: str = "") -> Result:
     """5つの担当を順に動かして記事を仕上げる。"""
     keyword = entry["keyword"]
     intent = entry.get("intent") or f"{keyword}で探している読者が、自分に合う商品を選べるようにする"
@@ -683,6 +691,7 @@ def write_article(entry: dict, products: list[dict], market: dict,
     facts = "（前置きの「この記事で扱う商品データ」を参照してください）"
     count = len(products)
     reports: dict = {}
+    serp_text = serp_text or "（今回は競合の分析がありません。基本方針どおりに企画してください）"
 
     log("  [1/5] リサーチ担当が商品データを整理しています")
     research = complete(RESEARCH_PROMPT.format(
@@ -694,14 +703,15 @@ def write_article(entry: dict, products: list[dict], market: dict,
     log("  [2/5] 企画担当が構成を決めています")
     plan = complete(PLAN_PROMPT.format(
         keyword=keyword, count=count, product_names=product_names(products),
-        research=research, insights=insights.for_prompt("plan")), system, *BUDGET["plan"])
+        research=research, insights=insights.for_prompt("plan"),
+        serp=serp_text), system, *BUDGET["plan"])
     reports["plan"] = plan
     top = parse_top(plan, count)
 
     log("  [3/5] ライターが本文を書いています")
     draft = complete(WRITER_PROMPT.format(
         keyword=keyword, plan=plan, research=research, products=facts,
-        insights=insights.for_prompt("writer")), system, *BUDGET["writer"])
+        insights=insights.for_prompt("writer"), serp=serp_text), system, *BUDGET["writer"])
     reports["draft"] = draft
 
     def edit(text: str, extra: str = "") -> tuple[str, str, str, str]:

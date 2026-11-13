@@ -77,5 +77,7 @@
       "input": 1,
       "output": 5
     }
-  }
+  },
+  "_serp_analysis_note": "true にすると、記事を書く前に同じキーワードで検索上位の記事を数本読み、扱うべき論点と差をつける論点を企画に反映します（Claude APIのウェブ検索を使用、安いモデルで実行）。",
+  "serp_analysis": true
 }
