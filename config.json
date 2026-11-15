@@ -79,5 +79,13 @@
     }
   },
   "_serp_analysis_note": "true にすると、記事を書く前に同じキーワードで検索上位の記事を数本読み、扱うべき論点と差をつける論点を企画に反映します（Claude APIのウェブ検索を使用、安いモデルで実行）。",
-  "serp_analysis": true
+  "serp_analysis": true,
+  "_adsense_note": "Googleアドセンスの設定。client は運営者ID（ca-pub- で始まる）。審査の申請前に client だけ入れてサイトを更新すると、審査用のコードと ads.txt が自動で入ります。合格後に広告ユニットを2つ作り、そのIDを slot_middle（記事の途中）と slot_end（記事の最後）に入れると広告が表示されます。空のままなら何も出ません。",
+  "adsense": {
+    "client": "",
+    "slot_middle": "",
+    "slot_end": ""
+  },
+  "_cf_analytics_note": "Cloudflare Web Analytics のサイトトークン（英数字32文字）。入れると全ページにアクセス解析が入ります。Cookieを使わない解析なので、同意の表示は不要です。空なら何も入りません。",
+  "cf_analytics_token": ""
 }

@@ -14,6 +14,7 @@ GitHub Pages が site/ を配信する想定。
 
 from __future__ import annotations
 
+import re
 import shutil
 from html import escape
 from pathlib import Path
@@ -25,6 +26,8 @@ from .hikaku import widget
 from .hikaku.table import CSS as TABLE_CSS
 
 SITE_CSS = """
+.ad{margin:32px 0;padding:8px 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;min-height:120px}
+.ad-label{display:block;font-size:11px;color:#8a8f98;margin-bottom:4px}
 /* 色と文字の決まりごと。色は「意味」にだけ使う：
    brand … サイトの印・順位・結論（読者を案内する色）
    cta   … 購入ボタンだけ（押してほしい場所を1つの色に絞る）
@@ -138,6 +141,41 @@ def category_name(config: dict, slug: str) -> str:
     return slug or "その他"
 
 
+def ads_config(config: dict) -> dict:
+    """広告とアクセス解析の設定。形が正しい値だけを返す（打ち間違いで壊れたタグを出さない）。"""
+    ads = config.get("adsense") or {}
+    client = str(ads.get("client") or "").strip()
+    token = str(config.get("cf_analytics_token") or "").strip()
+    out = {"client": "", "slots": {}, "token": ""}
+    if client:
+        if re.fullmatch(r"ca-pub-\d{10,20}", client):
+            out["client"] = client
+            for key in ("slot_middle", "slot_end"):
+                slot = str(ads.get(key) or "").strip()
+                if re.fullmatch(r"\d{5,20}", slot):
+                    out["slots"][key] = slot
+        else:
+            print(f"  [警告] adsense.client の形が正しくないので使いません: {client!r}（例: ca-pub-1234567890123456）")
+    if token:
+        if re.fullmatch(r"[0-9a-f]{32}", token):
+            out["token"] = token
+        else:
+            print("  [警告] cf_analytics_token の形が正しくないので使いません")
+    return out
+
+
+def ad_unit(config: dict, key: str) -> str:
+    """広告枠1つ。審査に通って広告ユニットのIDを設定するまでは何も出さない。"""
+    a = ads_config(config)
+    slot = a["slots"].get(key)
+    if not a["client"] or not slot:
+        return ""
+    return (f'<div class="ad"><span class="ad-label">広告</span>'
+            f'<ins class="adsbygoogle" style="display:block" data-ad-client="{a["client"]}" '
+            f'data-ad-slot="{slot}" data-ad-format="auto" data-full-width-responsive="true"></ins>'
+            f'<script>(adsbygoogle=window.adsbygoogle||[]).push({{}});</script></div>')
+
+
 def head(title: str, description: str, config: dict, canonical: str = "",
          image: str = "", noindex: bool = False) -> str:
     base = config.get("base_url", "").rstrip("/")
@@ -155,6 +193,17 @@ def head(title: str, description: str, config: dict, canonical: str = "",
         og += [f'<meta property="og:image" content="{escape(image)}">',
                '<meta name="twitter:card" content="summary_large_image">']
     robots = '<meta name="robots" content="noindex,nofollow">' if noindex else ""
+    # 広告（Googleアドセンス）とアクセス解析（Cloudflare Web Analytics）。
+    # 運営者だけが使う商品選択ページ（noindex）には入れない
+    a = ads_config(config)
+    extra = []
+    if a["client"] and not noindex:
+        extra += [f'<meta name="google-adsense-account" content="{a["client"]}">',
+                  f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'
+                  f'?client={a["client"]}" crossorigin="anonymous"></script>']
+    if a["token"] and not noindex:
+        extra.append("<script defer src=\"https://static.cloudflareinsights.com/beacon.min.js\" "
+                     f"data-cf-beacon='{{\"token\": \"{a['token']}\"}}'></script>")
     # 記事が1本もないカテゴリはページを生成しないので、ナビにも出さない。
     # 出してしまうとリンク先が404になる。
     active = config.get("_active_categories")
@@ -178,6 +227,7 @@ def head(title: str, description: str, config: dict, canonical: str = "",
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700&display=swap">
 <link rel="stylesheet" href="{prefix}style.css">
 <script src="{prefix}rakuten-table.js" defer></script>
+{chr(10).join(extra)}
 </head>
 <body>
 <header class="site"><div class="container">
@@ -209,6 +259,17 @@ def render_post(draft: common.Draft, config: dict) -> str:
         body_html = body_html.replace("<!--TABLE-->", draft.table_html or "")
     body_html = body_html.replace("<!--STATS-->", draft.stats_html or "")
 
+    # 広告は2か所まで。商品カードや購入ボタンの近くには置かない（楽天のボタンが押されにくくなるため）。
+    # 1つ目は商品紹介が終わったあとの「選び方」の見出しの前、なければ「よくある質問」の前に入れる
+    middle = ad_unit(config, "slot_middle")
+    if middle:
+        for word in ("選び方", "よくある質問"):
+            m = re.search(r'<h2[^>]*>[^<]*' + word, body_html)
+            if m:
+                body_html = body_html[:m.start()] + middle + body_html[m.start():]
+                break
+    end_ad = ad_unit(config, "slot_end")
+
     # 未記入欄が残ったまま公開された場合、読者に見せないよう除去する
     for name in ("実体験", "注意点", "結論"):
         body_html = body_html.replace("{{" + name + "}}", "")
@@ -238,6 +299,7 @@ def render_post(draft: common.Draft, config: dict) -> str:
   <div class="post-body">
   {body_html}
   </div>
+  {end_ad}
 </article>
 {foot(config)}"""
 
@@ -340,14 +402,35 @@ def render_about(config: dict) -> str:
      当サイトは掲載情報の正確性に努めていますが、その完全性を保証するものではありません。
      商品の購入は読者ご自身の判断と責任で行ってください。</p>
 
+{ads_policy(config)}
+
   <h2>アクセス解析について</h2>
-  <p>当サイトでは、サイトの改善のためアクセス解析ツールを使用する場合があります。
-     収集されるデータは匿名であり、個人を特定するものではありません。</p>
+  <p>当サイトでは、サイトの改善のため、Cloudflare社のアクセス解析（Cloudflare Web Analytics）を
+     使用する場合があります。このツールはCookieを使わずに、閲覧されたページや参照元などを匿名で集計します。
+     個人を特定する情報は収集していません。</p>
 
   <h2>著作権について</h2>
   <p>当サイトに掲載されている文章・画像の無断転載を禁じます。</p>
 </article>
 {foot(config)}"""
+
+
+def ads_policy(config: dict) -> str:
+    """広告配信についての説明。アドセンスを使うときは、Cookieの利用と無効化の方法の掲載が必要。"""
+    if not ads_config(config)["client"]:
+        return ""
+    return """
+  <h2>広告の配信について</h2>
+  <p>当サイトは、第三者配信の広告サービス「Google アドセンス」を利用しています。
+     Googleなどの第三者配信事業者は、Cookieを使用して、ユーザーが当サイトや他のサイトに
+     過去にアクセスした際の情報に基づいて広告を配信します。</p>
+  <p>Googleが広告Cookieを使用することにより、ユーザーが当サイトや他のサイトにアクセスした際の情報に
+     基づいて、Googleやそのパートナーが適切な広告を表示できます。</p>
+  <p>ユーザーは、<a href="https://adssettings.google.com/" rel="nofollow">Googleの広告設定</a>で
+     パーソナライズ広告を無効にできます。また、
+     <a href="https://www.aboutads.info/" rel="nofollow">www.aboutads.info</a>にアクセスすれば、
+     パーソナライズ広告に使われる第三者配信事業者のCookieを無効にできます。
+     詳しくは<a href="https://policies.google.com/technologies/ads?hl=ja" rel="nofollow">Googleの広告に関するポリシー</a>をご覧ください。</p>"""
 
 
 def render_sitemap(posts: list[common.Draft], config: dict) -> str:
@@ -462,6 +545,13 @@ def main() -> None:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
                 copied += 1
+
+    # 広告の販売者確認ファイル。設定した運営者IDから作る（static/ に置いたものがあればそちらが優先）
+    client = ads_config(config)["client"]
+    if client and not (static_dir / "ads.txt").exists():
+        (common.SITE / "ads.txt").write_text(
+            f"google.com, {client.replace('ca-', '', 1)}, DIRECT, f08c47fec0942fa0\n",
+            encoding="utf-8")
 
     # GitHub Pages が _ で始まるパスをJekyll扱いしないようにする
     (common.SITE / ".nojekyll").write_text("", encoding="utf-8")
