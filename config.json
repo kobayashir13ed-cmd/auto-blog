@@ -87,5 +87,5 @@
     "slot_end": ""
   },
   "_cf_analytics_note": "Cloudflare Web Analytics のサイトトークン（英数字32文字）。入れると全ページにアクセス解析が入ります。Cookieを使わない解析なので、同意の表示は不要です。空なら何も入りません。",
-  "cf_analytics_token": ""
+  "cf_analytics_token": "245835dc792e41cb90b6ee8b6045f641"
 }
