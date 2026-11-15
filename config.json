@@ -82,7 +82,7 @@
   "serp_analysis": true,
   "_adsense_note": "Googleアドセンスの設定。client は運営者ID（ca-pub- で始まる）。審査の申請前に client だけ入れてサイトを更新すると、審査用のコードと ads.txt が自動で入ります。合格後に広告ユニットを2つ作り、そのIDを slot_middle（記事の途中）と slot_end（記事の最後）に入れると広告が表示されます。空のままなら何も出ません。",
   "adsense": {
-    "client": "",
+    "client": "ca-pub-4510506332262138",
     "slot_middle": "",
     "slot_end": ""
   },
