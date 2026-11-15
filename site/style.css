@@ -1,4 +1,6 @@
 
+.ad{margin:32px 0;padding:8px 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;min-height:120px}
+.ad-label{display:block;font-size:11px;color:#8a8f98;margin-bottom:4px}
 /* 色と文字の決まりごと。色は「意味」にだけ使う：
    brand … サイトの印・順位・結論（読者を案内する色）
    cta   … 購入ボタンだけ（押してほしい場所を1つの色に絞る）
