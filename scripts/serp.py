@@ -44,7 +44,7 @@ SERP_PROMPT = """\
 ■ 手順
 ━━━━━━━━━━━━━━━━━━━━
 1. キーワードをそのままウェブ検索する。
-2. 結果のうち、商品を比べたり選び方を説明したりしている「記事」を上から3〜4本選び、
+2. 結果のうち、商品を比べたり選び方を説明したりしている「記事」を上から3本選び、
    それぞれを取得（web_fetch）して読む。通販の商品ページ、SNS、動画は読まない。
 3. 読んだ記事について、タイトル、## にあたる見出し、紹介している商品の数、
    ほかの記事にない切り口を整理する。
@@ -77,8 +77,8 @@ def tools(config: dict) -> tuple[list[dict], list[str]]:
         {"type": conf["search"], "name": "web_search", "max_uses": 2,
          "blocked_domains": BLOCKED_DOMAINS},
         # 記事の本文は長いが、見出しと論点がつかめれば十分なので取得量を絞る
-        {"type": conf["fetch"], "name": "web_fetch", "max_uses": 4,
-         "blocked_domains": BLOCKED_DOMAINS, "max_content_tokens": 8000},
+        {"type": conf["fetch"], "name": "web_fetch", "max_uses": 3,
+         "blocked_domains": BLOCKED_DOMAINS, "max_content_tokens": 5000},
     ], list(conf.get("betas") or [])
 
 

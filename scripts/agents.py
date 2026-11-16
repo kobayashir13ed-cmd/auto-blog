@@ -43,10 +43,13 @@ Complete = Callable[..., str]
 BUDGET = {
     # リサーチは事実の整理なので、安いモデルで十分（LIGHT_ROLES）
     "research": (16000, None),
-    "plan": (16000, None),
+    # 企画書は型が決まっているので、考える処理は止める（考えた分も出力として課金されるため）
+    "plan": (16000, False),
     "writer": (32000, False),
     "editor": (36000, False),
     "check": (16000, None),
+    # 2回目以降の事実確認は、直した箇所の確認が中心なので考える処理を止める
+    "recheck": (12000, False),
     "fix": (32000, False),
     # 指摘箇所だけの差し替え案を出す。記事全体を書き直さないので出力が小さい
     "patch": (8000, False),
@@ -390,7 +393,7 @@ EDITOR_PROMPT = """\
 ■ 出力の形式（この順番で）
 ━━━━━━━━━━━━━━━━━━━━
 REPORT:
-（6つの観点それぞれについて、直した点を箇条書きで短く。大きく直した箇所を3つ）
+（直した点を、全部で5行以内の箇条書きで。各行40字程度まで）
 ===ARTICLE===
 TITLE: （タイトル）
 DESC: （説明文）
@@ -737,7 +740,8 @@ def write_article(entry: dict, products: list[dict], market: dict,
         try:
             checked = parse_check(complete(CHECK_PROMPT.format(
                 products=facts, market=market_text,
-                article=f"TITLE: {title}\n\n{body}"), system, *BUDGET["check"]))
+                article=f"TITLE: {title}\n\n{body}"), system,
+                *BUDGET["check" if attempt == 1 else "recheck"]))
         except RuntimeError as exc:
             # 確認できなかった記事は公開しない。ただし書き上げた原稿は捨てず、承認待ちに回す
             log(f"        事実確認を実行できませんでした: {exc}")
