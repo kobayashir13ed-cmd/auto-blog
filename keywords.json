@@ -687,7 +687,7 @@
       "max_price": 20000,
       "peak_month": 1,
       "hits": 4,
-      "status": "drafted",
+      "status": "published",
       "generated_at": "2026-11-16",
       "updated_at": "2026-11-16"
     },

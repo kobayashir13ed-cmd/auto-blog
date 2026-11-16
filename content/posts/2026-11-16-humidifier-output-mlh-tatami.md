@@ -7,7 +7,7 @@
   "category": "appliance",
   "description": "加湿器選びで迷う「加湿量ml/h」と「畳数」の対応を数値で解説。木造・プレハブの違いやタンク容量との関係も整理し、3商品から自分に合う1台を選べます。",
   "created_at": "2026-11-16",
-  "published_at": ""
+  "published_at": "2026-11-16"
 }
 -->
 
