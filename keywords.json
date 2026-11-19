@@ -714,8 +714,9 @@
       "max_price": 15000,
       "peak_month": 1,
       "hits": 4,
-      "status": "pending",
-      "generated_at": "2026-11-16"
+      "status": "drafted",
+      "generated_at": "2026-11-16",
+      "updated_at": "2026-11-19"
     },
     {
       "keyword": "モバイルバッテリー 重さ g 容量 mAh",
