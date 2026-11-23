@@ -14,6 +14,7 @@ GitHub Pages が site/ を配信する想定。
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from html import escape
@@ -65,6 +66,11 @@ header.site nav a:hover{background:var(--surface);color:var(--ink)}
 /* 記事 */
 .post{padding:32px 0 0}
 .post-head{margin:0 0 28px}
+.crumbs{font-size:.78rem;color:var(--muted);margin:0 0 10px}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.related{margin:40px 0 0;padding-top:24px;border-top:1px solid #e5e7eb}
+.related-title{font-size:1.05rem;margin:0 0 14px}
 .chip{display:inline-block;padding:.18rem .7rem;border-radius:999px;background:var(--brand-soft);
   color:var(--brand);font-size:.78rem;font-weight:700;text-decoration:none;margin:0 0 .8rem}
 h1{font-family:var(--head-font);font-size:1.9rem;line-height:1.45;margin:0 0 .8rem;
@@ -179,7 +185,7 @@ def ad_unit(config: dict, key: str) -> str:
 
 
 def head(title: str, description: str, config: dict, canonical: str = "",
-         image: str = "", noindex: bool = False) -> str:
+         image: str = "", noindex: bool = False, jsonld: list | None = None) -> str:
     base = config.get("base_url", "").rstrip("/")
     prefix = escape(config.get("path_prefix", "/"))
     canonical_url = base + canonical if base and canonical else ""
@@ -230,6 +236,7 @@ def head(title: str, description: str, config: dict, canonical: str = "",
 <link rel="stylesheet" href="{prefix}style.css">
 <script src="{prefix}rakuten-table.js" defer></script>
 {chr(10).join(extra)}
+{ld_scripts(jsonld)}
 </head>
 <body>
 <header class="site"><div class="container">
@@ -251,7 +258,107 @@ def foot(config: dict) -> str:
 </body></html>"""
 
 
-def render_post(draft: common.Draft, config: dict) -> str:
+# --------------------------------------------------------------------------
+# 関連記事（記事どうしのリンク）
+# --------------------------------------------------------------------------
+# 関連する記事どうしをつなぐと、読者が次の記事へ進みやすくなり、
+# Googleにも「この分野をまとめて扱うサイト」だと伝わりやすくなる。
+# APIは使わず、キーワード・タイトル・カテゴリの近さで機械的に選ぶ。
+
+RELATED_COUNT = 4
+
+# 話題のまとまり。同じまとまりの記事を優先してつなぐ（キーワードやタイトルにこの語があれば、その話題とみなす）
+TOPICS = {
+    "desk": ["モニター", "デスク", "机", "天板", "マウス", "キーボード", "チェア", "椅子",
+             "ノートパソコン", "ノートPC", "スタンド", "デスクライト", "配線", "Webカメラ", "webカメラ",
+             "在宅", "姿勢"],
+    "pc": ["USB", "ハブ", "SSD", "SDカード", "充電器", "モバイルバッテリー", "Wi-Fi", "wifi", "中継機",
+           "イヤホン", "Type-C", "typec", "ケーブル", "パソコン", "プリンター"],
+    "warm": ["暖房", "ヒーター", "こたつ", "電気毛布", "足元", "寒さ", "寒い", "防寒", "インナー", "冬", "ストーブ", "W数", "ワット"],
+    "air": ["加湿", "結露", "乾燥", "空気清浄", "花粉", "静電気", "除湿", "窓"],
+    "home": ["ケトル", "炊飯", "電子レンジ", "レンジフード", "掃除機", "ドライヤー", "洗濯",
+             "布団乾燥", "布団", "キッチン", "換気扇", "油汚れ", "掃除"],
+    "storage": ["収納", "本棚", "靴", "ラック", "ボックス", "カーテン", "ラグ", "ベッド", "マット", "棚"],
+}
+
+
+def _bigrams(text: str) -> set[str]:
+    text = re.sub(r"[\s｜|、。・：:！!？?（）()「」【】\-]", "", text or "")
+    return {text[i:i + 2] for i in range(len(text) - 1)}
+
+
+def _topics(post: common.Draft) -> set[str]:
+    text = f"{post.keyword} {post.title}".lower()
+    return {name for name, words in TOPICS.items() if any(w.lower() in text for w in words)}
+
+
+def related_posts(post: common.Draft, posts: list[common.Draft],
+                  count: int = RELATED_COUNT) -> list[common.Draft]:
+    """似ている記事を選ぶ。同じ話題を最優先し、次にキーワード・タイトルの近さ、カテゴリを見る。"""
+    topics = _topics(post)
+    words = set((post.keyword or "").split())
+    grams = _bigrams(post.title) | _bigrams(post.keyword)
+    scored = []
+    for other in posts:
+        if other.slug == post.slug:
+            continue
+        o_grams = _bigrams(other.title) | _bigrams(other.keyword)
+        sim = len(grams & o_grams) / max(1, len(grams | o_grams))
+        score = (3 * len(topics & _topics(other))
+                 + len(words & set((other.keyword or "").split()))
+                 + sim * 5
+                 + (0.5 if other.category == post.category else 0))
+        # 同点なら新しい記事を先に（新しい記事ほど内容が充実しているため）
+        scored.append((-score, -(len(other.published_at or other.created_at or "")),
+                       other.published_at or other.created_at or "", other))
+    scored.sort(key=lambda x: (x[0], [-ord(c) for c in x[2]]))
+    return [o for s, _, _, o in scored[:count] if s < 0]
+
+
+# --------------------------------------------------------------------------
+# 構造化データ（Googleに記事の種類とサイトの階層を伝える）
+# --------------------------------------------------------------------------
+# 評価（★）や商品の構造化データは使わない。評価は楽天の購入者によるもので、
+# 自分のサイトの評価として示すのはGoogleの規約上ふさわしくないため。
+
+def ld_scripts(items: list | None) -> str:
+    if not items:
+        return ""
+    # </script> で閉じられないよう、< をエスケープしておく
+    return "\n".join(
+        '<script type="application/ld+json">'
+        + json.dumps(i, ensure_ascii=False).replace("<", "\\u003c") + "</script>"
+        for i in items)
+
+
+def post_jsonld(post: common.Draft, config: dict, image: str) -> list[dict]:
+    base = config.get("base_url", "").rstrip("/")
+    prefix = config.get("path_prefix", "/")
+    url = f"{base}{prefix}{post.slug}/"
+    site = config.get("site_title", "")
+    org = {"@type": "Organization", "name": config.get("author") or site, "url": f"{base}{prefix}"}
+    article = {
+        "@context": "https://schema.org", "@type": "BlogPosting",
+        "headline": post.title[:110], "description": post.description,
+        "datePublished": post.published_at or post.created_at,
+        "dateModified": post.updated_at or post.published_at or post.created_at,
+        "author": org, "publisher": {"@type": "Organization", "name": site},
+        "mainEntityOfPage": url, "inLanguage": "ja",
+    }
+    if image:
+        article["image"] = [image]
+    crumbs = [{"@type": "ListItem", "position": 1, "name": site, "item": f"{base}{prefix}"}]
+    if post.category:
+        crumbs.append({"@type": "ListItem", "position": 2,
+                       "name": category_name(config, post.category),
+                       "item": f"{base}{prefix}category/{post.category}/"})
+    crumbs.append({"@type": "ListItem", "position": len(crumbs) + 1, "name": post.title, "item": url})
+    return [article, {"@context": "https://schema.org", "@type": "BreadcrumbList",
+                      "itemListElement": crumbs}]
+
+
+def render_post(draft: common.Draft, config: dict,
+                related: list[common.Draft] | None = None) -> str:
     body_html = md.markdown(draft.body, extensions=["extra", "sane_lists", "toc"])
     if draft.products:
         # 商品紹介形式。差し込み記号を結論ボックス・比較表・商品カードに置き換える
@@ -288,8 +395,20 @@ def render_post(draft: common.Draft, config: dict) -> str:
                 f"{escape(category_name(config, draft.category))}</a>")
     image = products_view.top_image(draft.products, draft.body) if draft.products else ""
 
-    return f"""{head(draft.title, draft.description, config, f"{prefix}{draft.slug}/", image=image)}
+    # パンくず（ホーム › カテゴリ › 記事）。読者が今どこにいるか分かり、上の階層へ戻りやすい
+    crumb = f'<a href="{escape(prefix)}">ホーム</a>'
+    if draft.category:
+        crumb += (f' › <a href="{escape(prefix)}category/{escape(draft.category)}/">'
+                  f'{escape(category_name(config, draft.category))}</a>')
+    related_html = ""
+    if related:
+        related_html = ('<section class="related"><h2 class="related-title">あわせて読みたい</h2>\n'
+                        + post_list(related, config) + "</section>")
+
+    return f"""{head(draft.title, draft.description, config, f"{prefix}{draft.slug}/", image=image,
+                jsonld=post_jsonld(draft, config, image))}
 <article class="post">
+  <nav class="crumbs" aria-label="パンくずリスト">{crumb}</nav>
   <div class="post-head">
     {chip}
     <h1>{escape(draft.title)}</h1>
@@ -301,6 +420,7 @@ def render_post(draft: common.Draft, config: dict) -> str:
   <p class="notice">本記事はプロモーション（アフィリエイト広告）を含みます。
      商品の価格・在庫は変わることがあるため、最新の情報は販売ページでご確認ください。</p>
   {end_ad}
+  {related_html}
 </article>
 {foot(config)}"""
 
@@ -513,7 +633,8 @@ def main() -> None:
     for post in posts:
         post_dir = common.SITE / post.slug
         post_dir.mkdir(parents=True, exist_ok=True)
-        (post_dir / "index.html").write_text(render_post(post, config), encoding="utf-8")
+        (post_dir / "index.html").write_text(
+            render_post(post, config, related_posts(post, posts)), encoding="utf-8")
 
     # カテゴリ別ページ。記事が1本もないカテゴリは作らない
     # （中身のない一覧ページを量産すると低品質ページとみなされるため）
