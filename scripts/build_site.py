@@ -77,6 +77,8 @@ h3{font-size:1.08rem;line-height:1.55;margin:2rem 0 .6rem}
 p{margin:0 0 1.15rem}
 strong{background:linear-gradient(transparent 62%,#ffe8a3 62%);font-weight:700}
 .meta{font-size:.82rem;color:var(--muted);margin:0}
+.pr-badge{display:inline-block;margin-left:.6em;padding:0 .45em;border:1px solid var(--muted);
+  border-radius:4px;font-size:.7rem;line-height:1.5;color:var(--muted);vertical-align:1px}
 .notice{margin:14px 0 0;padding:.6rem .9rem;border-radius:10px;background:var(--surface);
   font-size:.78rem;color:var(--muted);line-height:1.7}
 .post-body ul,.post-body ol{padding-left:1.4em;margin:0 0 1.2rem}
@@ -291,14 +293,13 @@ def render_post(draft: common.Draft, config: dict) -> str:
   <div class="post-head">
     {chip}
     <h1>{escape(draft.title)}</h1>
-    <p class="meta">{dates}</p>
-    <p class="notice">本記事にはアフィリエイト広告（PR）が含まれます。商品の情報は、
-       楽天市場の商品情報（価格・評価・商品説明）にもとづいています。
-       編集部は紹介する商品を実際には使用していません。</p>
+    <p class="meta">{dates}<span class="pr-badge" title="本記事はプロモーションを含みます">PR</span></p>
   </div>
   <div class="post-body">
   {body_html}
   </div>
+  <p class="notice">本記事はプロモーション（アフィリエイト広告）を含みます。
+     商品の価格・在庫は変わることがあるため、最新の情報は販売ページでご確認ください。</p>
   {end_ad}
 </article>
 {foot(config)}"""
