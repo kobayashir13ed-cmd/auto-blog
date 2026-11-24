@@ -460,7 +460,8 @@
       "max_price": 40000,
       "hits": 4,
       "peak_month": null,
-      "status": "pending"
+      "status": "drafted",
+      "updated_at": "2026-11-24"
     },
     {
       "keyword": "電子レンジ 解凍 ムラ 端 固い",
