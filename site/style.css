@@ -38,6 +38,11 @@ header.site nav a:hover{background:var(--surface);color:var(--ink)}
 /* 記事 */
 .post{padding:32px 0 0}
 .post-head{margin:0 0 28px}
+.crumbs{font-size:.78rem;color:var(--muted);margin:0 0 10px}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.related{margin:40px 0 0;padding-top:24px;border-top:1px solid #e5e7eb}
+.related-title{font-size:1.05rem;margin:0 0 14px}
 .chip{display:inline-block;padding:.18rem .7rem;border-radius:999px;background:var(--brand-soft);
   color:var(--brand);font-size:.78rem;font-weight:700;text-decoration:none;margin:0 0 .8rem}
 h1{font-family:var(--head-font);font-size:1.9rem;line-height:1.45;margin:0 0 .8rem;
