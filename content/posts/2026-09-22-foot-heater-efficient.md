@@ -1,11 +1,11 @@
 <!--META
 {
   "id": "2026-09-22-foot-heater-efficient",
-  "title": "足元暖房で電気代を安く抑える選び方ガイド",
+  "title": "足元暖房の電気代を抑えるには？消費電力で見る選び方",
   "keyword": "足元 暖房 電気代 安い",
   "slug": "foot-heater-efficient",
   "category": "seasonal",
-  "description": "足元だけを暖めて電気代を抑えたい人向けに、消費電力や暖め方の違いから選び方の基準をわかりやすく整理しました。",
+  "description": "足元だけを暖めて電気代を抑えたい人向けに、消費電力（W数）と暖め方の違いから選び方の基準を整理しました。",
   "created_at": "2026-09-22",
   "published_at": "2026-09-22"
 }

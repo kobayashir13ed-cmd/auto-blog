@@ -1,11 +1,11 @@
 <!--META
 {
   "id": "2026-11-05-wifi-extender-2nd-floor",
-  "title": "2階にWi-Fiが届かない人へ｜中継機2台を公式仕様で比較",
+  "title": "2階にWi-Fiが届かないときの中継機は？公式仕様で2台を比較",
   "keyword": "Wi-Fi 中継機 2階 電波 届かない",
   "slug": "wifi-extender-2nd-floor",
   "category": "gadget",
-  "description": "2階でWi-Fiが弱い・届かない人向けに、中継機2商品を公式仕様と楽天の評価データだけで比較します。中継機とメッシュの違い、有線LANの速度差、保証表記の注意点まで分かります。",
+  "description": "2階でWi-Fiが弱い・届かないときに選ぶ中継機を、メーカー公式の仕様と楽天の評価データで2台比較。中継機とメッシュの違い、有線LANの速度差も分かります。",
   "created_at": "2026-11-05",
   "published_at": "2026-11-05"
 }
