@@ -40,24 +40,34 @@ jobs:
             --action "${{ github.event.client_payload.action || inputs.action }}"
 
       - name: 変更をコミット
+        env:
+          DRAFT_ID: ${{ github.event.client_payload.draft_id || inputs.draft_id }}
+          ACTION: ${{ github.event.client_payload.action || inputs.action }}
         run: |
           git config user.name "auto-blog"
           git config user.email "actions@github.com"
-          git add content/ site/ keywords.json
-          # 変更がない場合にワークフローを失敗させない
-          if git diff --staged --quiet; then
-            echo "コミットする変更はありません。"
-            exit 0
-          fi
-          git commit -m "publish: ${{ github.event.client_payload.draft_id || inputs.draft_id }}"
-          # 他のワークフローや手元からのプッシュとぶつかることがある。
-          # その場合はリモートを取り込んでから押し直す。
-          for i in 1 2 3; do
+          commit() {
+            git add content/ site/ keywords.json
+            # 変更がない場合にワークフローを失敗させない
+            if git diff --staged --quiet; then
+              echo "コミットする変更はありません。"
+              return 1
+            fi
+            git commit -q -m "publish: $DRAFT_ID"
+          }
+          commit || exit 0
+          # 承認を続けて押すと、同時に動いた別の公開とぶつかる。
+          # サイトのHTMLは記事から作り直せるので、最新の状態に合わせてから公開をやり直す
+          for i in 1 2 3 4 5; do
             if git push; then exit 0; fi
-            echo "プッシュが競合しました。取り込んで再試行します（$i/3）"
-            git pull --rebase
+            echo "プッシュが競合しました。最新の状態から公開をやり直します（$i/5）"
+            sleep $((i * 5))
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            python -m scripts.publish --draft-id "$DRAFT_ID" --action "$ACTION"
+            commit || exit 0
           done
-          echo "3回試しましたがプッシュできませんでした。" >&2
+          echo "5回試しましたがプッシュできませんでした。" >&2
           exit 1
 
       - uses: actions/configure-pages@v5
