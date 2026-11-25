@@ -69,7 +69,8 @@
         "impressions": 9,
         "clicks": 0,
         "position": 5.8
-      }
+      },
+      "excluded": "作り直し（商品紹介形式へ）でタイトルと本文が変わるため、測定から外す"
     },
     {
       "slug": "foot-heater-efficient",
@@ -83,7 +84,8 @@
         "impressions": 8,
         "clicks": 0,
         "position": 6.9
-      }
+      },
+      "excluded": "作り直し（商品紹介形式へ）でタイトルと本文が変わるため、測定から外す"
     }
   ]
 }

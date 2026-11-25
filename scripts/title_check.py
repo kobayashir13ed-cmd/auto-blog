@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> None:
     except (OSError, ValueError):
         print("タイトル変更の記録がありません。")
         return
-    tests = data.get("tests") or []
+    tests = [t for t in data.get("tests") or [] if not t.get("excluded")]
     today = common.now_jst().date()
     latest = today - timedelta(days=2)              # Search Console の確定データの最終日
     due = [t for t in tests if not t.get("after")

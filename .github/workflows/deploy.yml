@@ -37,4 +37,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+      # GitHub側の一時的な不具合で「アップロードしたサイトのデータが見つからない」と失敗することがある。
+      # その場合は少し待って、もう一度だけ反映を試す
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: 反映に失敗したので1分待つ
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 60
       - uses: actions/deploy-pages@v4
+        if: steps.deploy.outcome == 'failure'
