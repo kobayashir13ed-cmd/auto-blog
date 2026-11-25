@@ -126,7 +126,7 @@
   }
 
   function renderStats(box, s) {
-    if (!s) { box.innerHTML = '<p class="hkg-loading">集計できるデータがありませんでした。</p>'; return; }
+    if (!s) { box.innerHTML = ""; return; }
 
     var rows = [
       ["集計した商品数", num(s.sampled) + "件（該当商品は全" + num(s.total) + "件）"],
@@ -167,7 +167,7 @@
       renderStats(box, summarize(items, total));
     }).catch(function (err) {
       if (window.console) console.warn("[rakuten-stats]", err);
-      box.innerHTML = '<p class="hkg-loading">集計データを取得できませんでした。</p>';
+      box.innerHTML = "";
     });
   }
 
