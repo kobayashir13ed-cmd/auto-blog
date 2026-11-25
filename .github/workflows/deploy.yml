@@ -14,7 +14,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # 「Re-run」でやり直したときも、古い状態ではなく最新の記事からサイトを作る
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
@@ -30,8 +33,24 @@ jobs:
           git config user.name "auto-blog"
           git config user.email "actions@github.com"
           git add site/
-          git diff --staged --quiet || git commit -m "site: 再生成"
-          git push
+          if git diff --staged --quiet; then
+            echo "サイトに変更はありません。"
+            exit 0
+          fi
+          git commit -m "site: 再生成"
+          # 実行中に記事の公開などが先に入ると押し返される。その場合は最新を取り込み、作り直してから押し直す
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "プッシュが競合しました。最新を取り込んで作り直します（$i/3）"
+            git fetch origin main
+            git reset --hard origin/main
+            python -m scripts.build_site
+            git add site/
+            git diff --staged --quiet && exit 0
+            git commit -m "site: 再生成"
+          done
+          echo "3回試しましたがプッシュできませんでした。" >&2
+          exit 1
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
