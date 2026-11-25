@@ -477,11 +477,19 @@ CHECK_PROMPT = """\
 ━━━━━━━━━━━━━━━━━━━━
 {{"ok": true または false,
   "issues": [
-    {{"quote": "記事の該当箇所をそのまま抜き出す",
-      "problem": "何が問題か",
-      "fix": "どう直すか"}}
+    {{"level": "重大" または "軽微",
+      "quote": "記事の該当箇所をそのまま抜き出す（1文以内）",
+      "problem": "何が問題か（短く）",
+      "fix": "どう直すか（短く）"}}
   ]}}
 問題がなければ {{"ok": true, "issues": []}} だけを返します。
+・level の決め方
+  重大：商品データと食い違う数値・仕様・順位・比較、別の商品の仕様の混入、使用体験、
+        レビューの中身を知っているかのような記述、販売価格の具体的な金額、
+        「必ず治る」「〇円節約できる」のような効果や節約額の断定
+  軽微：それ以外（言い回しの好み、推測の度合い、念のための注意）
+・自分で「問題ない」「修正不要」と判断した箇所は、issues に入れないでください。
+・JSONの文字列の中で " を使うときは \\" と書きます。
 一般的な知識として正しいことでも、商品データにない商品固有の主張は問題として挙げてください。
 商品の種類全体についての一般的な仕組みの説明は、特定の商品に当てはめていなければ問題にしません。
 価格の順位や「いちばん手頃」のような比較は、渡された商品データの価格と合っていれば問題にしません。
@@ -752,11 +760,16 @@ def parse_check(text: str) -> dict:
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
         data = json.loads(cleaned[start:end + 1])
-        issues = [i for i in data.get("issues", []) if isinstance(i, dict)]
-        return {"ok": bool(data.get("ok")) and not issues, "issues": issues}
+        found = [i for i in data.get("issues", []) if isinstance(i, dict)]
+        # 軽微な指摘は記録に残すだけで、直させたり公開を止めたりしない
+        # （確認のたびに新しい細かい指摘が出て、いつまでも公開できなくなるため）
+        issues = [i for i in found if "軽微" not in str(i.get("level", ""))]
+        minor = [i for i in found if "軽微" in str(i.get("level", ""))]
+        return {"ok": not issues, "issues": issues, "minor": minor}
     except (ValueError, AttributeError):
-        return {"ok": False, "issues": [{"quote": "", "problem": "事実確認の結果を読み取れませんでした",
-                                         "fix": "人が確認する"}]}
+        return {"ok": False, "unreadable": True,
+                "issues": [{"quote": "", "problem": "事実確認の結果を読み取れませんでした",
+                            "fix": "人が確認する"}]}
 
 
 # --------------------------------------------------------------------------
@@ -832,10 +845,13 @@ def write_article(entry: dict, products: list[dict], market: dict,
     for attempt in (1, 2, 3):
         log(f"  [5/5] 事実確認担当が確認しています（{attempt}回目）")
         try:
-            checked = parse_check(complete(CHECK_PROMPT.format(
-                products=facts, market=market_text,
-                article=f"TITLE: {title}\n\n{body}"), system,
-                *BUDGET["check" if attempt == 1 else "recheck"]))
+            prompt = CHECK_PROMPT.format(products=facts, market=market_text,
+                                         article=f"TITLE: {title}\n\n{body}")
+            budget = BUDGET["check" if attempt == 1 else "recheck"]
+            checked = parse_check(complete(prompt, system, *budget))
+            if checked.get("unreadable"):
+                log("        確認結果を読み取れなかったので、もう一度確認します")
+                checked = parse_check(complete(prompt, system, *budget))
         except RuntimeError as exc:
             # 確認できなかった記事は公開しない。ただし書き上げた原稿は捨てず、承認待ちに回す
             log(f"        事実確認を実行できませんでした: {exc}")
