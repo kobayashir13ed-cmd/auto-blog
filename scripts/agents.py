@@ -602,6 +602,34 @@ EXACT_PRICE = re.compile(
     r"(?:\d{1,3}(?:,\d{3})+|\d{4,})円(?!台|前後|以下|以上|未満|程度|くらい|ほど|帯|〜|~)")
 
 
+def drop_sentences(body: str, quotes: list[str]) -> tuple[str, int]:
+    """指摘された文を、その文を含む「。」までの1文ごと本文から削る。
+
+    見出し・表・差し込み記号を含む行は削らない（記事の形が崩れるため）。
+    削れた数を返す。全部削れなかった場合は、呼び出し側で公開を止めたままにする。
+    """
+    removed = 0
+    for quote in quotes:
+        q = quote.strip().strip("「」…").split("…")[0].strip()
+        if len(q) < 8 or body.count(q) != 1:
+            continue
+        start = body.index(q)
+        line_start = body.rfind("\n", 0, start) + 1
+        line_end = body.find("\n", start)
+        line_end = len(body) if line_end < 0 else line_end
+        line = body[line_start:line_end]
+        if line.lstrip().startswith(("#", "|", "<!--")) or "<!--" in line:
+            continue
+        s = max(body.rfind("。", line_start, start) + 1, line_start)
+        e = body.find("。", start)
+        if e < 0 or e >= line_end:
+            e = line_end - 1
+        body = body[:s] + body[e + 1:]
+        removed += 1
+    body = re.sub(r"\n{3,}", "\n\n", body)
+    return body, removed
+
+
 def lint(body: str, count: int, top: int) -> list[str]:
     """公開してはいけない原稿を機械的に見つける。問題を文章で返す。"""
     issues = []
@@ -846,6 +874,16 @@ def write_article(entry: dict, products: list[dict], market: dict,
         reports[f"fix_{attempt}"] = fixed
         if b2:
             title, desc, body = t2 or title, d2 or desc, b2
+
+    # 3回直しても指摘が残った文は、文ごと削る（APIを使わない）。
+    # 削っても新しい誤りは入らないので、残りが体裁の指摘だけになれば公開してよい
+    failed = any("できませんでした" in p or "失敗しました" in p for p in problems)
+    if problems and not failed and "checked" in locals() and checked.get("issues"):
+        body, removed = drop_sentences(body, [i.get("quote", "") for i in checked["issues"]])
+        if removed == len(checked["issues"]):
+            log(f"        直しきれなかった{removed}文を削りました")
+            problems = lint(body, count, top)
+            reports["dropped"] = removed
 
     # 出典の一覧は事実確認のあとに機械で付ける（AIに書かせるとURLを写し間違えることがある）
     body = body.rstrip() + official_mod.sources_section(official or {})
