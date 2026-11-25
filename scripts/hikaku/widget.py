@@ -57,7 +57,6 @@ def placeholder(keyword: str, hits: int = 3,
     return (
         f'<div {" ".join(attrs)}>\n'
         f'  <div class="hkg-fallback">\n'
-        f'    <p>商品情報を読み込んでいます…</p>\n'
         f'    <p><a class="hkg-btn hkg-btn--rakuten" href="{escape(search, quote=True)}"\n'
         f'       target="_blank" rel="sponsored nofollow noopener">'
         f'楽天市場で「{escape(keyword)}」を検索する</a></p>\n'
@@ -85,9 +84,7 @@ def stats_placeholder(keyword: str,
     if max_price is not None:
         attrs.append(f'data-max-price="{max_price}"')
     return (
-        f'<div {" ".join(attrs)}>\n'
-        f'  <p class="hkg-loading">集計しています…</p>\n'
-        f'</div>'
+        f'<div {" ".join(attrs)}></div>'
     )
 
 
@@ -219,7 +216,7 @@ JS_TEMPLATE = r"""/* 楽天 比較表・集計ウィジェット（自動生成�
   }
 
   function renderStats(box, s) {
-    if (!s) { box.innerHTML = '<p class="hkg-loading">集計できるデータがありませんでした。</p>'; return; }
+    if (!s) { box.innerHTML = ""; return; }
 
     var rows = [
       ["集計した商品数", num(s.sampled) + "件（該当商品は全" + num(s.total) + "件）"],
@@ -260,7 +257,7 @@ JS_TEMPLATE = r"""/* 楽天 比較表・集計ウィジェット（自動生成�
       renderStats(box, summarize(items, total));
     }).catch(function (err) {
       if (window.console) console.warn("[rakuten-stats]", err);
-      box.innerHTML = '<p class="hkg-loading">集計データを取得できませんでした。</p>';
+      box.innerHTML = "";
     });
   }
 
