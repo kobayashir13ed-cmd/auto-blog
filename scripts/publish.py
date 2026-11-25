@@ -28,6 +28,10 @@ def already_done(draft_id: str) -> str:
     posts/ へ移動するため、2回目は「ファイルが無い」で異常終了していた。
     これは操作ミスではなく二度押しなので、エラーにせず正常終了させる。
     """
+    # 作り直しの記事は、公開済みの記事があるうえで承認待ちのドラフトができる。
+    # ドラフトが残っていれば、まだ承認されていないので処理を続ける
+    if (common.DRAFTS / f"{draft_id}.md").exists():
+        return ""
     if (common.POSTS / f"{draft_id}.md").exists():
         return "published"
     if (REJECTED / f"{draft_id}.md").exists():

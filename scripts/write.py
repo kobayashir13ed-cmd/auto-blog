@@ -376,6 +376,10 @@ def main(argv: list[str] | None = None) -> None:
 
     draft.published_at = existing.published_at if existing else today
     common.write_draft(draft, common.POSTS)
+    # 以前の作り直しで承認待ちのまま残った古いドラフトは消す
+    # （残っていると、古い承認メールを押したときに新しい記事が古い版で上書きされる）
+    for suffix in (".md",) + common.SIDE_SUFFIXES:
+        (common.DRAFTS / f"{draft_id}{suffix}").unlink(missing_ok=True)
     if existing:
         # 旧形式の比較表は新しい記事では使わない。残すと古い内容が読み込まれる
         for suffix in (".table.html", ".email.html"):
