@@ -206,6 +206,14 @@ def fill(body_html: str, products: list[dict]) -> str:
 
 
 # 小見出しの名前で、直後の箇条書きに見た目の種類を付ける
+# 見出しが自由な言葉でも、含まれる語で箇条書きの種類を推測する（上から順に判定）
+LIST_HINTS = [
+    (("気をつけ", "注意", "弱点", "デメリット", "惜しい", "向かない", "向いていない"), "cons"),
+    (("向いて", "こんな人", "おすすめの人", "合う人"), "fit"),
+    (("良い", "強み", "メリット", "魅力", "うれしい"), "pros"),
+    (("仕様", "スペック", "数値で見る"), "spec"),
+]
+
 LIST_KINDS = {
     "こんな人に向いています": "fit",
     "向いている人": "fit",
@@ -222,7 +230,9 @@ LIST_KINDS = {
 def decorate(body_html: str) -> str:
     """見出しや箇条書きに種類ごとのクラスを付ける。文章だけの画面にしないため。"""
     def list_kind(m: re.Match) -> str:
-        kind = LIST_KINDS.get(re.sub(r"<[^>]+>", "", m.group(2)).strip())
+        text = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+        kind = LIST_KINDS.get(text) or (None if re.match(r"Q[.．]", text) else next(
+            (k for words, k in LIST_HINTS if any(w in text for w in words)), None))
         if not kind:
             return m.group(0)
         return f'{m.group(1)}\n<ul class="pc-list pc-list--{kind}">'
