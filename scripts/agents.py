@@ -899,7 +899,7 @@ def write_article(entry: dict, products: list[dict], market: dict,
         if removed == len(checked["issues"]):
             log(f"        直しきれなかった{removed}文を削りました")
             problems = lint(body, count, top)
-            reports["dropped"] = removed
+            reports["dropped_sentences"] = removed
 
     # 出典の一覧は事実確認のあとに機械で付ける（AIに書かせるとURLを写し間違えることがある）
     body = body.rstrip() + official_mod.sources_section(official or {})
